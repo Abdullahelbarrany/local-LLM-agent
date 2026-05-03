@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Agent</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #f5f6fa;
+      --surface:     #ffffff;
+      --border:      #e4e7ec;
+      --text:        #0f1117;
+      --text-soft:   #6b7280;
+      --text-faint:  #9ca3af;
+      --blue:        #2563eb;
+      --blue-dark:   #1d4ed8;
+      --blue-faint:  #eff6ff;
+      --green:       #22c55e;
+      --amber:       #f59e0b;
+      --red:         #ef4444;
+      --radius:      18px;
+      --shadow-sm:   0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md:   0 4px 12px rgba(0,0,0,.08);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+
+    /* ── Header ────────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      width: 100%;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      height: 58px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      flex-shrink: 0;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #2563eb, #7c3aed);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: white;
+      font-size: 15px;
+    }
+
+    header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.2px;
+    }
+
+    .model-badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      color: var(--text-soft);
+      letter-spacing: 0.1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #status-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-faint);
+      transition: color .2s;
+    }
+    #status-badge .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #d1d5db;
+      transition: background .3s;
+      flex-shrink: 0;
+    }
+    #status-badge.connected  { color: #16a34a; } #status-badge.connected  .dot { background: var(--green); }
+    #status-badge.thinking   { color: #b45309; } #status-badge.thinking   .dot { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+    #status-badge.error      { color: #dc2626; } #status-badge.error      .dot { background: var(--red); }
+
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+
+    /* ── Messages ──────────────────────────────────────────── */
+    #messages {
+      flex: 1;
+      width: 100%;
+      max-width: 740px;
+      overflow-y: auto;
+      padding: 28px 20px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ── Empty state ───────────────────────────────────────── */
+    #empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      padding-bottom: 60px;
+    }
+
+    .empty-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #2563eb18, #7c3aed18);
+      border: 1px solid #e0e7ff;
+      border-radius: 16px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+    }
+
+    .empty-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
+
+    .empty-sub {
+      font-size: 13.5px;
+      color: var(--text-soft);
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    .suggestions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      max-width: 520px;
+    }
+
+    .suggestion {
+      font-size: 13px;
+      font-weight: 500;
+      padding: 8px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: all .15s;
+      box-shadow: var(--shadow-sm);
+    }
+    .suggestion:hover {
+      border-color: var(--blue);
+      color: var(--blue);
+      background: var(--blue-faint);
+    }
+
+    /* ── Message rows ──────────────────────────────────────── */
+    .msg-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      animation: slideUp .2s ease-out;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .msg-group.user  { align-items: flex-end; }
+    .msg-group.agent { align-items: flex-start; }
+
+    .msg-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-faint);
+      padding: 0 4px;
+      margin-bottom: 4px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .bubble {
+      max-width: 82%;
+      padding: 11px 16px;
+      border-radius: var(--radius);
+      line-height: 1.6;
+      font-size: 14.5px;
+      word-break: break-word;
+    }
+
+    .msg-group.user .bubble {
+      background: var(--blue);
+      color: #fff;
+      border-bottom-right-radius: 5px;
+      box-shadow: 0 2px 8px rgba(37,99,235,.25);
+    }
+
+    .msg-group.agent .bubble {
+      background: var(--surface);
+      color: var(--text);
+      border-bottom-left-radius: 5px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border);
+    }
+
+    /* ── Markdown inside agent bubbles ────────────────────── */
+    .bubble p  { margin-bottom: 6px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble ul, .bubble ol { padding-left: 20px; margin: 6px 0; }
+    .bubble li { margin-bottom: 3px; }
+    .bubble strong { font-weight: 600; }
+    .bubble em { font-style: italic; }
+    .bubble h2 { font-size: 16px; font-weight: 600; margin: 10px 0 4px; }
+    .bubble h3 { font-size: 15px; font-weight: 600; margin: 8px 0 4px; }
+    .bubble code {
+      font-family: "SF Mono", "Fira Code", Consolas, monospace;
+      font-size: 13px;
+      background: #f3f4f6;
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .msg-group.user .bubble code { background: rgba(255,255,255,.2); }
+    .bubble pre {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 8px 0;
+      overflow-x: auto;
+    }
+    .bubble pre code { background: none; padding: 0; font-size: 13px; }
+
+    /* ── Markdown tables ───────────────────────────────────── */
+    .table-wrap { overflow-x: auto; margin: 8px 0; border-radius: 8px; border: 1px solid var(--border); }
+    .bubble table { border-collapse: collapse; font-size: 13.5px; width: 100%; }
+    .bubble th {
+      padding: 8px 14px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      color: var(--text-soft);
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+    }
+    .bubble td {
+      padding: 8px 14px;
+      text-align: left;
+      border-bottom: 1px solid #f1f3f5;
+      color: var(--text);
+    }
+    .bubble tr:last-child td { border-bottom: none; }
+    .bubble tbody tr:hover td { background: #f9fafb; }
+
+    /* ── Tool calls ────────────────────────────────────────── */
+    .tool-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      padding: 0 2px;
+      margin-bottom: 5px;
+    }
+
+    .tool-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .tool-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 3px 9px;
+      border-radius: 99px;
+      background: #f0f4ff;
+      color: #3b5fe4;
+      border: 1px solid #c7d5fd;
+      animation: fadeIn .2s ease;
+    }
+    @keyframes fadeIn { from { opacity:0; transform:scale(.9); } to { opacity:1; transform:scale(1); } }
+
+    .tool-chip svg {
+      width: 10px; height: 10px;
+      opacity: 0.7;
+    }
+
+    /* ── Cursor blink ──────────────────────────────────────── */
+    .cursor::after {
+      content: "▋";
+      font-size: 13px;
+      margin-left: 1px;
+      animation: blink .65s step-end infinite;
+      color: var(--blue);
+    }
+    .msg-group.user .bubble.cursor::after { color: rgba(255,255,255,.7); }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Input wrapper ─────────────────────────────────────── */
+    #input-wrap {
+      width: 100%;
+      max-width: 740px;
+      padding: 8px 20px 24px;
+      flex-shrink: 0;
+    }
+
+    #input-box {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 10px 10px 10px 16px;
+      box-shadow: var(--shadow-md);
+      transition: border-color .15s;
+    }
+    #input-box:focus-within { border-color: var(--blue); }
+
+    #input {
+      flex: 1;
+      resize: none;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: 14.5px;
+      line-height: 1.5;
+      color: var(--text);
+      background: transparent;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    #input::placeholder { color: var(--text-faint); }
+    #input:disabled { color: var(--text-faint); }
+
+    #send-btn {
+      width: 36px; height: 36px;
+      flex-shrink: 0;
+      border-radius: 10px;
+      border: none;
+      background: var(--blue);
+      color: #fff;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s, transform .1s, opacity .15s;
+    }
+    #send-btn:hover:not(:disabled) { background: var(--blue-dark); }
+    #send-btn:active:not(:disabled) { transform: scale(.94); }
+    #send-btn:disabled { opacity: .38; cursor: not-allowed; }
+    #send-btn svg { width: 16px; height: 16px; }
+
+    .input-hint {
+      font-size: 11.5px;
+      color: var(--text-faint);
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <div class="logo-icon">✦</div>
+    <h1>LLM Agent</h1>
+    <span class="model-badge" id="model-name">loading…</span>
+  </div>
+  <div class="header-right">
+    <div id="status-badge">
+      <div class="dot"></div>
+      <span id="status-text">Idle</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Messages ───────────────────────────────────────────── -->
+<div id="messages">
+  <div id="empty">
+    <div class="empty-icon">✦</div>
+    <div class="empty-title">What can I help with?</div>
+    <div class="empty-sub">Ask anything about your projects, sprints, and team.</div>
+    <div class="suggestions">
+      <button class="suggestion">What projects are active?</button>
+      <button class="suggestion">Show all team members</button>
+      <button class="suggestion">What is Alice working on?</button>
+      <button class="suggestion">List all active sprints</button>
+      <button class="suggestion">Which tasks are high priority?</button>
+      <button class="suggestion">Who has the most tasks?</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Input ──────────────────────────────────────────────── -->
+<div id="input-wrap">
+  <div id="input-box">
+    <textarea id="input" rows="1" placeholder="Ask about your projects…"></textarea>
+    <button id="send-btn" title="Send  (Enter)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+    </button>
+  </div>
+  <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+</div>
+
+<script>
+  const messagesEl  = document.getElementById('messages');
+  const inputEl     = document.getElementById('input');
+  const sendBtn     = document.getElementById('send-btn');
+  const statusBadge = document.getElementById('status-badge');
+  const statusText  = document.getElementById('status-text');
+  const emptyEl     = document.getElementById('empty');
+  const modelName   = document.getElementById('model-name');
+
+  const history = [];
+
+  // ── Status ─────────────────────────────────────────────────────────────────
+  function setStatus(state, label) {
+    statusBadge.className = state || '';
+    statusText.textContent = label ?? { connected:'Ready', thinking:'Thinking…', error:'Error', '':'Idle' }[state] ?? state;
+  }
+
+  function setInputLocked(locked) {
+    inputEl.disabled = locked;
+    sendBtn.disabled = locked;
+  }
+
+  function scrollToBottom() {
+    messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior: 'smooth' });
+  }
+
+  function removeEmpty() {
+    if (emptyEl?.parentNode) emptyEl.remove();
+  }
+
+  // Fetch model name from /tools endpoint (reuse the health endpoint)
+  fetch('/health').then(() =>
+    fetch('/tools').then(r => r.json()).then(d => {
+      const count = d.tools?.length ?? 0;
+      modelName.textContent = `${count} tools`;
+    }).catch(() => { modelName.textContent = 'agent'; })
+  ).catch(() => { modelName.textContent = 'offline'; });
+
+  // ── Markdown renderer ──────────────────────────────────────────────────────
+  function renderMarkdown(raw) {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    const inline = s => s
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,     '<em>$1</em>')
+      .replace(/`([^`]+)`/g,     '<code>$1</code>');
+
+    const isSep   = l => /^\|[\s\-:|]+\|$/.test(l.trim());
+    const parseRow = l => l.trim().replace(/^\||\|$/g,'').split('|').map(c => c.trim());
+
+    const flushTable = buf => {
+      const rows = buf.filter(l => !isSep(l));
+      if (!rows.length) return '';
+      const [header, ...body] = rows;
+      const th = parseRow(esc(header)).map(c => `<th>${inline(c)}</th>`).join('');
+      const tb = body.map(r =>
+        '<tr>' + parseRow(esc(r)).map(c => `<td>${inline(c)}</td>`).join('') + '</tr>'
+      ).join('');
+      return `<div class="table-wrap"><table><thead><tr>${th}</tr></thead>${tb ? `<tbody>${tb}</tbody>` : ''}</table></div>`;
+    };
+
+    const lines = raw.split('\n');
+    let html = '', inUL = false, inOL = false, inCode = false, codeBuf = '', tableBuf = [];
+
+    const closeList = () => {
+      if (inUL) { html += '</ul>'; inUL = false; }
+      if (inOL) { html += '</ol>'; inOL = false; }
+    };
+    const closeTable = () => {
+      if (tableBuf.length) { html += flushTable(tableBuf); tableBuf = []; }
+    };
+
+    for (const raw_line of lines) {
+      const line = esc(raw_line);
+
+      // fenced code block
+      if (raw_line.trimStart().startsWith('```')) {
+        closeTable(); closeList();
+        if (inCode) { html += `<pre><code>${esc(codeBuf.trimEnd())}</code></pre>`; codeBuf = ''; inCode = false; }
+        else { inCode = true; }
+        continue;
+      }
+      if (inCode) { codeBuf += raw_line + '\n'; continue; }
+
+      // table row
+      if (raw_line.trim().startsWith('|')) {
+        closeList();
+        tableBuf.push(raw_line);
+        continue;
+      }
+      closeTable();
+
+      const ulM = line.match(/^[\-\*]\s+(.*)/);
+      const olM = line.match(/^\d+\.\s+(.*)/);
+      const h2M = line.match(/^##\s+(.*)/);
+      const h3M = line.match(/^###\s+(.*)/);
+
+      if (ulM) {
+        if (inOL) { html += '</ol>'; inOL = false; }
+        if (!inUL) { html += '<ul>'; inUL = true; }
+        html += `<li>${inline(ulM[1])}</li>`;
+      } else if (olM) {
+        if (inUL) { html += '</ul>'; inUL = false; }
+        if (!inOL) { html += '<ol>'; inOL = true; }
+        html += `<li>${inline(olM[1])}</li>`;
+      } else if (h3M) {
+        closeList(); html += `<h3>${inline(h3M[1])}</h3>`;
+      } else if (h2M) {
+        closeList(); html += `<h2>${inline(h2M[1])}</h2>`;
+      } else if (line.trim() === '') {
+        closeList(); html += '<br>';
+      } else {
+        closeList(); html += `<p>${inline(line)}</p>`;
+      }
+    }
+    closeList(); closeTable();
+    if (inCode) html += `<pre><code>${esc(codeBuf)}</code></pre>`;
+    return html;
+  }
+
+  // ── Build message UI ───────────────────────────────────────────────────────
+  function addUserBubble(text) {
+    removeEmpty();
+    const group = document.createElement('div');
+    group.className = 'msg-group user';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    group.appendChild(bubble);
+    messagesEl.appendChild(group);
+    scrollToBottom();
+  }
+
+  function createAgentGroup() {
+    removeEmpty();
+    const group   = document.createElement('div');
+    group.className = 'msg-group agent';
+
+    const toolBar = document.createElement('div');
+    toolBar.className = 'tool-bar';
+    toolBar.style.display = 'none';
+
+    const bubble  = document.createElement('div');
+    bubble.className = 'bubble cursor';
+
+    group.appendChild(toolBar);
+    group.appendChild(bubble);
+    messagesEl.appendChild(group);
+    scrollToBottom();
+    return { group, toolBar, bubble };
+  }
+
+  function addToolChip(toolBar, name) {
+    toolBar.style.display = 'flex';
+    const chip = document.createElement('span');
+    chip.className = 'tool-chip';
+    chip.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>${name}`;
+    toolBar.appendChild(chip);
+    scrollToBottom();
+  }
+
+  // ── Send ──────────────────────────────────────────────────────────────────
+  function send(text) {
+    text = (text ?? inputEl.value).trim();
+    if (!text) return;
+
+    inputEl.value = '';
+    inputEl.style.height = '';
+    setInputLocked(true);
+    setStatus('thinking');
+
+    history.push({ role: 'user', content: text });
+    addUserBubble(text);
+
+    const { toolBar, bubble } = createAgentGroup();
+    let accumulated = '';
+
+    const ws = new WebSocket(`ws://${location.host}/chat`);
+
+    ws.onopen = () => {
+      setStatus('thinking');
+      ws.send(JSON.stringify({ messages: history }));
+    };
+
+    ws.onmessage = ({ data }) => {
+      const evt = JSON.parse(data);
+      switch (evt.type) {
+
+        case 'tool_call':
+          addToolChip(toolBar, evt.tool);
+          break;
+
+        case 'token':
+          accumulated += evt.content;
+          bubble.innerHTML = renderMarkdown(accumulated);
+          bubble.classList.add('cursor');
+          scrollToBottom();
+          break;
+
+        case 'done':
+          bubble.classList.remove('cursor');
+          history.push({ role: 'assistant', content: accumulated });
+          setInputLocked(false);
+          setStatus('connected');
+          inputEl.focus();
+          break;
+
+        case 'error':
+          bubble.classList.remove('cursor');
+          bubble.style.color = 'var(--red)';
+          bubble.textContent = 'Error: ' + evt.message;
+          setInputLocked(false);
+          setStatus('error');
+          break;
+      }
+    };
+
+    ws.onerror = () => {
+      bubble.classList.remove('cursor');
+      bubble.style.color = 'var(--red)';
+      bubble.textContent = 'Could not connect to the server.';
+      setInputLocked(false);
+      setStatus('error');
+    };
+  }
+
+  // ── Events ────────────────────────────────────────────────────────────────
+  sendBtn.addEventListener('click', () => send());
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  });
+
+  document.querySelectorAll('.suggestion').forEach(btn =>
+    btn.addEventListener('click', () => send(btn.textContent))
+  );
+
+  inputEl.focus();
+</script>
+</body>
+</html>

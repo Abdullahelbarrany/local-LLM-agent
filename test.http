@@ -1,0 +1,27 @@
+@baseUrl = http://localhost:8000
+
+# ── Meta endpoints (plain HTTP) ───────────────────────────────────────────────
+
+### Health check
+GET {{baseUrl}}/health
+
+### List available tools
+GET {{baseUrl}}/tools
+
+# ── WebSocket /chat ───────────────────────────────────────────────────────────
+# The /chat endpoint is a WebSocket. Use test_ws.py to test it:
+#
+#   python test_ws.py
+#   python test_ws.py "What projects are active?"
+#
+# Message format sent TO the server:
+# {
+#   "messages": [{"role": "user", "content": "..."}],
+#   "system_prompt": null        ← optional
+# }
+#
+# Event stream received FROM the server:
+# {"type": "tool_call", "tool": "get_all_projects"}
+# {"type": "token",     "content": "Here are"}
+# {"type": "token",     "content": " your projects..."}
+# {"type": "done",      "tools_called": ["get_all_projects"]}

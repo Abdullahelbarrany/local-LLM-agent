@@ -1,5 +1,7 @@
 # Local LLM Agent
 
+![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
+
 A fully local AI assistant that connects a [Qwen](https://ollama.com/library/qwen3.5) language model (via [Ollama](https://ollama.com)) to a live MySQL project-management database. Ask natural-language questions about your projects, sprints, tasks, and team — the model picks the right database tools, queries them, and streams the answer back token-by-token through a WebSocket.
 
 ![Chat UI](Screenshot%202026-05-03%20185559.png)

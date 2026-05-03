@@ -1,6 +1,6 @@
 # Local LLM Agent
 
-A fully local AI assistant that connects a [Qwen](https://ollama.com/library/qwen2.5) language model (via [Ollama](https://ollama.com)) to a live MySQL project-management database. Ask natural-language questions about your projects, sprints, tasks, and team — the model picks the right database tools, queries them, and streams the answer back token-by-token through a WebSocket.
+A fully local AI assistant that connects a [Qwen](https://ollama.com/library/qwen3.5) language model (via [Ollama](https://ollama.com)) to a live MySQL project-management database. Ask natural-language questions about your projects, sprints, tasks, and team — the model picks the right database tools, queries them, and streams the answer back token-by-token through a WebSocket.
 
 ![Chat UI](Screenshot%202026-05-03%20185559.png)
 
@@ -30,7 +30,7 @@ Browser ──WebSocket──▶ FastAPI ──▶ Ollama (Qwen)
 | Layer | Technology |
 |---|---|
 | LLM runtime | [Ollama](https://ollama.com) — local inference, no API key needed |
-| Model | Qwen 2.5 (configurable via `OLLAMA_MODEL`) |
+| Model | Qwen 3.5 9B (configurable via `OLLAMA_MODEL`) |
 | API server | [FastAPI](https://fastapi.tiangolo.com) + Uvicorn |
 | Streaming transport | WebSocket (`/chat`) |
 | Database | MySQL via `mysql-connector-python` |
@@ -83,7 +83,7 @@ uv venv
 uv pip install -r requirements.txt
 
 # 3. Pull the model (once)
-ollama pull qwen2.5
+ollama pull qwen3.5:9b
 ```
 
 ---
@@ -125,7 +125,7 @@ MYSQL_PASSWORD=your_password_here
 
 # Ollama — optional, both default to the values shown
 OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=qwen2.5
+OLLAMA_MODEL=qwen3.5:9b
 ```
 
 `OLLAMA_HOST` and `OLLAMA_MODEL` are optional. The server starts Ollama automatically if it is not already running.
@@ -224,7 +224,8 @@ python test_ws.py "Who has the most in-progress tasks?"
 Any Ollama model that supports tool calling works. Change `OLLAMA_MODEL` in `.env`:
 
 ```env
-OLLAMA_MODEL=qwen2.5:14b     # larger, more capable
+OLLAMA_MODEL=qwen3.5:9b      # default
+OLLAMA_MODEL=qwen3.5:14b     # larger, more capable
 OLLAMA_MODEL=llama3.1         # Meta Llama
 OLLAMA_MODEL=mistral          # Mistral 7B
 ```

@@ -15,6 +15,7 @@ MAX_TOOL_ROUNDS = 10
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a helpful project management assistant. "
+    "Always respond in English only. "
     "You have access to a live database with projects, sprints, tasks, and team members. "
     "Use the provided tools to look up accurate data before answering. "
     "Be concise and factual."
@@ -78,14 +79,35 @@ async def run_agent_stream(
         yield {"type": "done", "tools_called": tools_called, "error": "max tool rounds reached"}
         return
 
-    # ── Streaming phase — final answer ───────────────────────────────────────
+    # ── Streaming phase — final answer (strip Qwen3 <think> blocks) ─────────
+    buf = ""
+    past_think = False
     async for chunk in await _client.chat(
         model=MODEL,
         messages=current_messages,
         stream=True,
     ):
         content = chunk.message.content
-        if content:
+        if not content:
+            continue
+
+        if past_think:
             yield {"type": "token", "content": content}
+            continue
+
+        buf += content
+        if "</think>" in buf:
+            past_think = True
+            after = buf.split("</think>", 1)[1]
+            buf = ""
+            if after:
+                yield {"type": "token", "content": after}
+        elif "<think>" not in buf and len(buf) > 20:
+            past_think = True
+            yield {"type": "token", "content": buf}
+            buf = ""
+
+    if buf and past_think is False:
+        yield {"type": "token", "content": buf}
 
     yield {"type": "done", "tools_called": tools_called}

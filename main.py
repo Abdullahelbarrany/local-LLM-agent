@@ -1,3 +1,4 @@
+import os
 import subprocess
 import time
 import urllib.request
@@ -10,6 +11,8 @@ from fastapi.staticfiles import StaticFiles
 from database import get_pool
 from llm import OLLAMA_HOST, run_agent_stream
 from models import ChatRequest
+from resume_llm import run_resume_agent_stream
+from resume_tools import RESUME_TOOL_DEFINITIONS
 from tools import TOOL_DEFINITIONS
 
 
@@ -108,6 +111,59 @@ async def chat_ws(websocket: WebSocket):
             return
 
         async for event in run_agent_stream(messages, system_prompt=req.system_prompt):
+            await websocket.send_json(event)
+
+    except WebSocketDisconnect:
+        pass
+    except Exception as exc:
+        await websocket.send_json({"type": "error", "message": str(exc)})
+    finally:
+        await websocket.close()
+
+
+# ---------------------------------------------------------------------------
+# Resume tailoring agent
+# ---------------------------------------------------------------------------
+
+@app.get("/resume", include_in_schema=False)
+def serve_resume_ui():
+    return FileResponse("static/resume.html")
+
+
+@app.get("/resume/tools", tags=["resume"])
+def list_resume_tools():
+    return {
+        "tools": [
+            {
+                "name": t["function"]["name"],
+                "description": t["function"]["description"],
+            }
+            for t in RESUME_TOOL_DEFINITIONS
+        ]
+    }
+
+
+@app.get("/resume/config", tags=["resume"])
+def resume_config():
+    return {
+        "cv_pdf_path": os.getenv("CV_PDF_PATH", "cv.pdf"),
+        "overleaf_tex_path": os.getenv("OVERLEAF_TEX_PATH", "cv.tex"),
+    }
+
+
+@app.websocket("/resume/chat")
+async def resume_chat_ws(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        data = await websocket.receive_json()
+        req = ChatRequest(**data)
+        messages = [m.model_dump() for m in req.messages]
+
+        if not messages:
+            await websocket.send_json({"type": "error", "message": "messages must not be empty"})
+            return
+
+        async for event in run_resume_agent_stream(messages, system_prompt=req.system_prompt):
             await websocket.send_json(event)
 
     except WebSocketDisconnect:

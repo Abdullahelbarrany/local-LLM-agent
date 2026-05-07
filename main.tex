@@ -1,0 +1,273 @@
+%-------------------------
+% Resume in Latex
+% Author
+% License : MIT
+%------------------------
+
+\documentclass[a4paper,11pt]{article}
+\usepackage{latexsym}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{ragged2e}
+\usepackage[empty]{fullpage}
+\usepackage{wrapfig}
+\usepackage{tabularx}
+\usepackage{titlesec}
+\usepackage{geometry}
+\usepackage{marvosym}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage{multicol}
+\usepackage{graphicx}
+\usepackage[T1]{fontenc}
+
+\setlength{\multicolsep}{0pt}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyfoot{}
+\renewcommand{\headrulewidth}{0pt}
+\renewcommand{\footrulewidth}{0pt}
+\geometry{left=1.4cm, top=0.8cm, right=1.2cm, bottom=1cm}
+
+\usepackage[most]{tcolorbox}
+\tcbset{
+	frame code={},
+	center title,
+	left=0pt,
+	right=0pt,
+	top=0pt,
+	bottom=0pt,
+	colback=gray!20,
+	colframe=white,
+	width=\dimexpr\textwidth\relax,
+	enlarge left by=-2mm,
+	boxsep=4pt,
+	arc=0pt,outer arc=0pt,
+}
+
+\raggedright
+\setlength{\tabcolsep}{0in}
+
+\titleformat{\section}{
+  \vspace{-4pt}\scshape\raggedright\large
+}{}{0em}{}[\color{black}\titlerule \vspace{-7pt}]
+
+%-------------------------
+% Custom commands
+\newcommand{\resumeItem}[2]{
+  \item{
+    \textbf{#1}{\hspace{0.5mm}#2 \vspace{-0.5mm}}
+  }
+}
+
+\newcommand{\resumePOR}[3]{
+\vspace{0.5mm}\item
+    \begin{tabular*}{0.97\textwidth}[t]{l@{\extracolsep{\fill}}r}
+        \textbf{#1}\hspace{0.3mm}#2 & \textit{\small{#3}}
+    \end{tabular*}
+    \vspace{-2mm}
+}
+
+\newcommand{\resumeSubheading}[4]{
+\vspace{0.5mm}\item
+    \begin{tabular*}{0.98\textwidth}[t]{l@{\extracolsep{\fill}}r}
+        \textbf{#1} & \textit{\footnotesize{#4}} \\
+        \textit{\footnotesize{#3}} &  \footnotesize{#2}\\
+    \end{tabular*}
+    \vspace{-2.4mm}
+}
+
+\newcommand{\resumeProject}[4]{
+\vspace{0.5mm}\item
+    \begin{tabular*}{0.98\textwidth}[t]{l@{\extracolsep{\fill}}r}
+        \textbf{#1} & \textit{\footnotesize{#3}} \\
+        \footnotesize{\textit{#2}} & \footnotesize{#4}
+    \end{tabular*}
+    \vspace{-2.4mm}
+}
+
+\newcommand{\resumeSubItem}[2]{\resumeItem{#1}{#2}\vspace{-4pt}}
+\renewcommand{\labelitemi}{$\vcenter{\hbox{\tiny$\bullet$}}$}
+
+\newcommand{\resumeSubHeadingListStart}{\begin{itemize}[leftmargin=*,labelsep=0mm]}
+\newcommand{\resumeHeadingSkillStart}{\begin{itemize}[leftmargin=*,itemsep=1.7mm, rightmargin=2ex]}
+\newcommand{\resumeItemListStart}{\begin{justify}\begin{itemize}[leftmargin=3ex, rightmargin=2ex, noitemsep,labelsep=1.2mm,itemsep=0mm]\small}
+\newcommand{\resumeSubHeadingListEnd}{\end{itemize}\vspace{2mm}}
+\newcommand{\resumeHeadingSkillEnd}{\end{itemize}\vspace{-2mm}}
+\newcommand{\resumeItemListEnd}{\end{itemize}\end{justify}\vspace{-2mm}}
+
+\newcommand{\cvsection}[1]{%
+\vspace{2mm}
+\begin{tcolorbox}
+    \textbf{\large #1}
+\end{tcolorbox}
+    \vspace{-4mm}
+}
+
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}%
+\newcolumntype{R}{>{\raggedleft\arraybackslash}X}%
+\newcolumntype{C}{>{\centering\arraybackslash}X}%
+
+%-------------------------------------------
+\newcommand{\name}{Abdullah Magdy Elbarrany}
+\newcommand{\course}{Computer Science and Engineering}
+\newcommand{\phone}{1023692128}
+\newcommand{\emaila}{abdullah.elbarrany@gmail.com}
+
+\begin{document}
+\fontfamily{cmr}\selectfont
+
+%----------HEADING-----------------
+{
+\begin{tabularx}{\linewidth}{L r} \\
+  \textbf{\Large \name} & +20-\phone \\
+  & \href{mailto:\emaila}{\emaila} \\
+  & \href{https://github.com/Abdullahelbarrany}{GitHub Profile} \\
+  & \href{https://www.linkedin.com/in/abdullah-elbarrany-8a300822a}{LinkedIn Profile} \\
+  & \href{https://abdullahelbarrany.github.io/AE_Portfolio/}{Portfolio}
+\end{tabularx}
+}
+
+% ---------- Summary ----------
+\section{Professional Summary}
+ML Engineer with 4+ years of experience designing and shipping production AI systems in healthcare. Architected end-to-end ML pipelines and LLM-powered workflows serving 1,000+ weekly users on GCP. Led technical design of RAG systems and agent frameworks adopted across the engineering team. Built information extraction pipelines over unstructured conversational data in a regulated healthcare environment. Mentors engineers, drives architectural decisions, and works cross-functionally with clinical, product, and operations stakeholders. Open source contributor with published LLM evaluation benchmarks on Kaggle.
+
+% ---------- Experience ----------
+\section{Experience}
+\resumeSubHeadingListStart
+
+\resumeSubheading
+{ML Engineer}{Remote}{mDoc}{Mar 2024 -- Present}
+
+\resumeItemListStart
+\item Proposed and designed the hybrid RAG architecture adopted by the engineering team. Wrote the technical spec for the LangGraph agent framework that engineers built production features on top of. Owned end-to-end delivery of the full ML system from architecture through deployment and monitoring.
+\item Built information extraction pipelines over unstructured healthcare conversations. Extracted structured signals including conversation topic, referral detection, and Flesch-Kincaid readability scores for both user and bot turns. Enabled downstream analytics on clinical communication quality.
+\item Built and deployed a production LLM-powered chatbot using \href{https://www.langchain.com/}{LangChain} and \href{https://langchain-ai.github.io/langgraph/}{LangGraph}. Serves 1,000+ weekly users at 900 req/min with under 0.8s P95 latency via async FastAPI on GCP Cloud Run.
+\item Built multi-agent orchestration workflows using structured function calling and JSON schema enforcement. Enabled reliable multi-step task execution, live database updates, and agentic task decomposition across employee-facing workflows.
+\item Integrated and benchmarked OpenAI GPT-4, Anthropic Claude, and Google Gemini APIs using \href{https://www.langchain.com/langsmith}{LangSmith} for evaluation and tracing. Drove a 52\% reduction in LLM costs through prompt compression and empirical model selection.
+\item Mentors engineers on ML system design and LLM best practices. Collaborates with clinical, product, and operations stakeholders to define requirements and ship AI features in short Agile cycles.
+\resumeItemListEnd
+
+\resumeSubheading
+{Machine Learning Engineer (Contract)}{On-site}{Zedzag}{May 2022 -- Dec 2023}
+
+\resumeItemListStart
+\item Shipped a YOLOv8-based statue recognition system end-to-end. Trained the model, built and deployed a Flask REST API, integrated it into a Flutter mobile app, and documented API contracts for the application layer. Delivered real-time inference to production users.
+\item Collaborated with a team of four engineers in an Agile environment. Participated in daily standups, shared code ownership, and contributed to CI/CD workflows using Docker and GitHub.
+\item Integrated Supabase (PostgreSQL) for persistent data storage. Stored and queried chatbot interaction logs for a client-facing web application.
+\resumeItemListEnd
+
+\resumeSubHeadingListEnd
+
+% ---------- Skills ----------
+\section{Technical Skills}
+\begin{itemize}[leftmargin=*]
+
+\item \textbf{LLM and AI Development}: LangChain (production), LangGraph (production), LangSmith, GPT-4 / Anthropic Claude / Google Gemini / Qwen / Llama APIs, Structured Outputs, Function Calling, Prompt Engineering, RAG Pipelines, Agent Frameworks, LLM Evaluation, Information Extraction, Vector Databases (Pinecone, Weaviate), Embeddings (OpenAI, HuggingFace)
+
+\item \textbf{Document Understanding and NLP}: Unstructured Data Extraction, Text Classification, Readability Scoring (Flesch-Kincaid), Named Entity Detection, Conversational Analytics, OpenCV, YOLOv8
+
+\item \textbf{Full Stack and Backend}: Python (production), FastAPI (async), Flask, REST APIs, WebSockets, PostgreSQL / Supabase, MongoDB, Firebase, SDK Integration
+
+\item \textbf{MLOps and Infrastructure}: Docker, GCP (Cloud Run, Compute Engine, Vertex AI), AWS (EC2, Lambda, SageMaker), CI/CD Pipelines, LangSmith, Sentry, Autoscaling, GitHub
+
+\item \textbf{Machine Learning}: PyTorch, TensorFlow, Scikit-learn, CNNs, LSTM / GRU / BI-LSTM, SFT, LoRA / QLoRA Fine-Tuning, Synthetic Data Generation
+
+\item \textbf{Leadership and Collaboration}: Technical Mentoring, System Architecture Design, Agile Delivery, Cross-functional Stakeholder Communication, Technical Specification Writing
+
+\end{itemize}
+
+%-----------PROJECTS-----------------
+\section{\textbf{Open Source Portfolio}}
+\resumeSubHeadingListStart
+
+\resumeProject
+  {MetaCal: LLM Evaluation Benchmark}
+  {\href{https://github.com/Abdullahelbarrany/MetaCal-}{GitHub} \quad | \quad \href{https://www.kaggle.com/benchmarks/abdullahelbarrany/meta-cal-benchmark}{Live Kaggle Benchmark}}
+  {Apr 2025 -- Present}
+  {}
+\resumeItemListStart
+  \item Built and published an open source benchmark evaluating LLM output quality across 12 tasks and 11 frontier models including GPT-4, Claude, and Gemini. Implemented automated scoring pipelines with structured JSON output parsing and LLM-as-judge evaluation. Submitted as a live Kaggle competition.
+  \item Tech: Python, OpenAI / Anthropic / Gemini APIs, kaggle\_benchmarks, scipy, matplotlib.
+\resumeItemListEnd
+\vspace{-2mm}
+
+\resumeProject
+  {Local LLM Agent}
+  {\href{https://github.com/Abdullahelbarrany/local-LLM-agent}{GitHub}}
+  {}
+  {}
+\resumeItemListStart
+  \item Built a local LLM agent integrating Qwen via a Flask API with a YOLOv8 vision model. The app sends images and receives structured model output. Demonstrates open-source LLM integration and local inference pipelines end-to-end.
+\resumeItemListEnd
+\vspace{-2mm}
+
+\resumeProject
+  {Statue Vision: AI-Powered Museum Guide}
+  {\href{https://github.com/Abdullahelbarrany/StatueVision}{GitHub}}
+  {}
+  {}
+\resumeItemListStart
+  \item Led development of a YOLOv8-based statue recognition system. Integrated a Flask REST API with a Flutter mobile app for real-time historical lookup. Full stack AI application from model training to user-facing interface.
+\resumeItemListEnd
+\vspace{-2mm}
+
+\resumeSubHeadingListEnd
+\vspace{-2mm}
+
+%-----------Achievements-----------------
+\section{\textbf{Achievements}}
+\vspace{-0.4mm}
+\resumeSubHeadingListStart
+\resumePOR{First Place -- 6th UGRF Special Edition}{, Nile University, Egypt}{Aug 2024}
+\resumePOR{Best Paper Award -- IMSA International Conference}{}{2023}
+\resumePOR{Finalist -- Innov8 Hackathon}{, Bahrain}{2023}
+\resumePOR{Finalist -- Benha Hackathon}{, Benha University, Egypt}{2022}
+\resumeSubHeadingListEnd
+\vspace{-5mm}
+
+% ---------- Publications & Research ----------
+\section{\textbf{Publications \& Research}}
+\vspace{-0.4mm}
+\resumeSubHeadingListStart
+
+\resumePOR
+  {From Benchmarks to the Real World: Why Healthcare AI Needs Real-World Data}
+  {\href{https://mymdoc.com/blogs/from-benchmarks-to-the-real-world-why-healthcare-ai-needs-real-world-data-20250901155902082-be54471b-b841-4a35-81fc-7af13a88ae07}{mDoc Blog}}
+  {}
+
+\resumePOR
+  {The Use of Pose Estimation for Abnormal Behavior Analysis in Poultry Farms}
+  {\href{https://doi.org/10.1109/NILES59815.2023.10296704}{DOI}}
+  {}
+
+\resumePOR
+  {BuckTracker: System For Multi Banknotes Tracking}
+  {\href{https://doi.org/10.1109/IMSA58542.2023.10217421}{DOI (Best Paper Award)}}
+  {}
+
+\resumePOR
+  {Abnormal Behavior Analysis for Surveillance in Poultry Farms using Deep Learning}
+  {\href{https://ieeexplore.ieee.org/document/10217676}{IEEE Xplore}}
+  {}
+
+\resumePOR
+  {Peer Reviewer}
+  {IEEE \& Springer Journals \,|\, \href{https://www.webofscience.com/wos/author/record/LEM-7086-2024}{Web of Science} \,|\, \href{https://orcid.org/0009-0004-7610-3097}{ORCID}}
+  {}
+
+\resumeSubHeadingListEnd
+\vspace{-5mm}
+
+%-----------EDUCATION-----------
+\section{\textbf{Education}}
+\resumeSubHeadingListStart
+  \resumeSubheading
+    {Bachelor of Science in Computer Science}{CGPA: 3.6}
+    {University of Greenwich}{2019--2023}
+\resumeSubHeadingListEnd
+\vspace{-5.5mm}
+
+\end{document}

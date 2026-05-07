@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resume Tailoring Agent</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:           #f5f6fa;
+      --surface:      #ffffff;
+      --border:       #e4e7ec;
+      --text:         #0f1117;
+      --text-soft:    #6b7280;
+      --text-faint:   #9ca3af;
+      --blue:         #2563eb;
+      --blue-dark:    #1d4ed8;
+      --blue-faint:   #eff6ff;
+      --green:        #22c55e;
+      --green-faint:  #dcfce7;
+      --green-text:   #16a34a;
+      --amber:        #f59e0b;
+      --amber-faint:  #fef3c7;
+      --amber-text:   #b45309;
+      --red:          #ef4444;
+      --purple:       #7c3aed;
+      --purple-dark:  #6d28d9;
+      --purple-faint: #f5f3ff;
+      --purple-border:#d8b4fe;
+      --radius:       18px;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md:    0 4px 12px rgba(0,0,0,.08);
+      --mono:         'JetBrains Mono', 'SF Mono', 'Fira Code', Consolas, monospace;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
+    }
+    body { display: flex; flex-direction: column; align-items: center; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 99px; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      width: 100%; background: rgba(255,255,255,0.88);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      height: 58px; display: flex; align-items: center;
+      justify-content: space-between; padding: 0 28px; flex-shrink: 0;
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .logo-icon {
+      width: 30px; height: 30px;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 15px;
+    }
+    header h1 { font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -0.2px; }
+    .model-badge {
+      font-size: 11px; font-weight: 500; padding: 2px 8px;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 99px; color: var(--text-soft); letter-spacing: 0.1px;
+    }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    #status-badge {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 12px; font-weight: 500; color: var(--text-faint); transition: color .2s;
+    }
+    #status-badge .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #d1d5db; transition: background .3s; flex-shrink: 0;
+    }
+    #status-badge.connected { color: var(--green-text); } #status-badge.connected .dot  { background: var(--green); }
+    #status-badge.thinking  { color: var(--amber-text); } #status-badge.thinking  .dot  { background: var(--amber); animation: pulse 1s ease-in-out infinite; }
+    #status-badge.error     { color: #dc2626; }            #status-badge.error     .dot  { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.4;} }
+
+    /* ── Config banner ──────────────────────────────────────── */
+    #config-banner {
+      width: 100%; max-width: 760px; margin: 12px 20px 0;
+      padding: 9px 14px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+      display: flex; flex-wrap: wrap; gap: 6px 20px;
+      font-size: 12px; color: var(--text-soft); flex-shrink: 0;
+    }
+    .cfg-item { display: flex; align-items: center; gap: 5px; }
+    .cfg-dot  { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; background: #d1d5db; }
+    .cfg-dot.ok { background: var(--green); }
+    .cfg-path { font-family: var(--mono); font-size: 11px; color: var(--text); }
+
+    /* ── Messages ───────────────────────────────────────────── */
+    #messages {
+      flex: 1; width: 100%; max-width: 760px;
+      overflow-y: auto; padding: 16px 20px 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    /* ── Empty state ────────────────────────────────────────── */
+    #empty {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 20px; padding-bottom: 60px;
+    }
+    .empty-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #7c3aed18, #2563eb18);
+      border: 1px solid #e0e7ff; border-radius: 16px;
+      display: flex; align-items: center; justify-content: center; font-size: 24px;
+    }
+    .empty-title { font-size: 18px; font-weight: 600; color: var(--text); letter-spacing: -0.3px; }
+    .empty-sub { font-size: 13.5px; color: var(--text-soft); text-align: center; line-height: 1.5; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
+    .suggestion {
+      font-size: 13px; font-weight: 500; padding: 8px 14px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 99px; color: var(--text-soft);
+      cursor: pointer; transition: all .15s; box-shadow: var(--shadow-sm);
+    }
+    .suggestion:hover { border-color: var(--purple); color: var(--purple); background: var(--purple-faint); }
+
+    /* ── Message groups ─────────────────────────────────────── */
+    .msg-group {
+      display: flex; flex-direction: column; gap: 4px;
+      animation: slideUp .2s ease-out;
+    }
+    @keyframes slideUp { from{opacity:0;transform:translateY(8px);} to{opacity:1;transform:translateY(0);} }
+    .msg-group.user  { align-items: flex-end; }
+    .msg-group.agent { align-items: flex-start; }
+
+    .bubble {
+      max-width: 84%; padding: 11px 16px;
+      border-radius: var(--radius); line-height: 1.65;
+      font-size: 14.5px; word-break: break-word;
+    }
+    .msg-group.user .bubble {
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      color: #fff; border-bottom-right-radius: 5px;
+      box-shadow: 0 2px 8px rgba(124,58,237,.25);
+    }
+    .msg-group.agent .bubble {
+      background: var(--surface); color: var(--text);
+      border-bottom-left-radius: 5px;
+      box-shadow: var(--shadow-sm); border: 1px solid var(--border);
+    }
+
+    /* Markdown in agent bubbles */
+    .bubble p { margin-bottom: 6px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble ul,.bubble ol { padding-left: 20px; margin: 6px 0; }
+    .bubble li { margin-bottom: 3px; }
+    .bubble strong { font-weight: 600; }
+    .bubble em { font-style: italic; }
+    .bubble h2 { font-size: 16px; font-weight: 600; margin: 10px 0 4px; }
+    .bubble h3 { font-size: 15px; font-weight: 600; margin: 8px 0 4px; }
+    .bubble code {
+      font-family: var(--mono); font-size: 12.5px;
+      background: #f3f4f6; padding: 1px 5px; border-radius: 4px;
+    }
+    .bubble pre {
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 8px; padding: 10px 12px; margin: 8px 0; overflow-x: auto;
+    }
+    .bubble pre code { background: none; padding: 0; font-size: 12.5px; }
+    .table-wrap { overflow-x: auto; margin: 8px 0; border-radius: 8px; border: 1px solid var(--border); }
+    .bubble table { border-collapse: collapse; font-size: 13.5px; width: 100%; }
+    .bubble th {
+      padding: 8px 14px; text-align: left; font-weight: 600; font-size: 12px;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      color: var(--text-soft); background: #f8fafc; border-bottom: 1px solid var(--border);
+    }
+    .bubble td { padding: 8px 14px; border-bottom: 1px solid #f1f3f5; color: var(--text); }
+    .bubble tr:last-child td { border-bottom: none; }
+    .bubble tbody tr:hover td { background: #f9fafb; }
+
+    /* ── Step trace rail ────────────────────────────────────── */
+    .steps-rail {
+      display: flex; flex-direction: column; gap: 4px;
+      max-width: 84%; width: 100%;
+    }
+
+    .step-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      font-size: 13px;
+      transition: border-color .15s;
+    }
+    .step-card.agent-card { border-color: var(--purple-border); }
+    .step-card.running    { border-color: #fcd34d; }
+
+    .step-header {
+      display: flex; align-items: center; gap: 7px;
+      padding: 8px 12px; cursor: pointer; user-select: none;
+      transition: background .1s;
+    }
+    .step-header:hover { background: #f9fafb; }
+    .step-card.agent-card .step-header:hover { background: var(--purple-faint); }
+
+    .step-chevron {
+      font-size: 9px; color: var(--text-faint);
+      transition: transform .2s; flex-shrink: 0;
+    }
+    .step-card.expanded .step-chevron { transform: rotate(90deg); }
+
+    .step-icon { font-size: 14px; flex-shrink: 0; }
+
+    .step-name {
+      font-weight: 600; color: var(--text);
+      flex-shrink: 0; font-size: 12.5px;
+    }
+    .step-card.agent-card .step-name { color: var(--purple); }
+
+    .step-hint {
+      flex: 1; color: var(--text-faint); font-size: 11.5px;
+      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+      font-family: var(--mono);
+    }
+
+    /* status badge */
+    .step-badge {
+      flex-shrink: 0; font-size: 11px; font-weight: 500;
+      padding: 2px 7px; border-radius: 99px; display: flex; align-items: center; gap: 4px;
+    }
+    .step-badge.running {
+      background: var(--amber-faint); color: var(--amber-text);
+    }
+    .step-badge.done {
+      background: var(--green-faint); color: var(--green-text);
+    }
+    .step-badge.error-badge {
+      background: #fee2e2; color: #dc2626;
+    }
+
+    /* spinner */
+    .spin {
+      display: inline-block; width: 10px; height: 10px;
+      border: 1.5px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin .6s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* step body (collapsed by default) */
+    .step-body {
+      display: none; border-top: 1px solid var(--border);
+      padding: 10px 12px; flex-direction: column; gap: 10px;
+    }
+    .step-card.expanded .step-body { display: flex; }
+
+    .step-section-label {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 4px;
+    }
+
+    .step-pre {
+      font-family: var(--mono); font-size: 11.5px;
+      background: #f8fafc; border: 1px solid #e2e8f0;
+      border-radius: 6px; padding: 8px 10px;
+      overflow-x: auto; white-space: pre-wrap; word-break: break-all;
+      max-height: 220px; overflow-y: auto; color: var(--text);
+      line-height: 1.55;
+    }
+    .step-card.agent-card .step-pre { background: var(--purple-faint); border-color: #e9d5ff; }
+
+    /* ── Cursor blink ───────────────────────────────────────── */
+    .cursor::after {
+      content: "▋"; font-size: 13px; margin-left: 1px;
+      animation: blink .65s step-end infinite; color: var(--purple);
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ── Input ──────────────────────────────────────────────── */
+    #input-wrap { width: 100%; max-width: 760px; padding: 8px 20px 24px; flex-shrink: 0; }
+    #input-box {
+      display: flex; align-items: flex-end; gap: 8px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: 16px; padding: 10px 10px 10px 16px;
+      box-shadow: var(--shadow-md); transition: border-color .15s;
+    }
+    #input-box:focus-within { border-color: var(--purple); }
+    #input {
+      flex: 1; resize: none; border: none; outline: none;
+      font-family: inherit; font-size: 14.5px; line-height: 1.5;
+      color: var(--text); background: transparent; max-height: 160px; overflow-y: auto;
+    }
+    #input::placeholder { color: var(--text-faint); }
+    #input:disabled     { color: var(--text-faint); }
+    #send-btn {
+      width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; border: none;
+      background: linear-gradient(135deg, #7c3aed, #2563eb);
+      color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: opacity .15s, transform .1s;
+    }
+    #send-btn:hover:not(:disabled)  { opacity: .9; }
+    #send-btn:active:not(:disabled) { transform: scale(.94); }
+    #send-btn:disabled { opacity: .38; cursor: not-allowed; }
+    #send-btn svg { width: 16px; height: 16px; }
+    .input-hint { font-size: 11.5px; color: var(--text-faint); text-align: center; margin-top: 8px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header>
+  <div class="header-left">
+    <div class="logo-icon">✦</div>
+    <h1>Resume Tailoring Agent</h1>
+    <span class="model-badge" id="tool-count">loading…</span>
+  </div>
+  <div class="header-right">
+    <div id="status-badge"><div class="dot"></div><span id="status-text">Idle</span></div>
+  </div>
+</header>
+
+<!-- ── Config banner ───────────────────────────────────────── -->
+<div id="config-banner">
+  <div class="cfg-item">
+    <span class="cfg-dot" id="cv-dot"></span>
+    <span>CV PDF:</span>
+    <span class="cfg-path" id="cv-path">…</span>
+  </div>
+  <div class="cfg-item">
+    <span class="cfg-dot" id="tex-dot"></span>
+    <span>Overleaf .tex:</span>
+    <span class="cfg-path" id="tex-path">…</span>
+  </div>
+</div>
+
+<!-- ── Messages ────────────────────────────────────────────── -->
+<div id="messages">
+  <div id="empty">
+    <div class="empty-icon">📄</div>
+    <div class="empty-title">Resume Tailoring Agent</div>
+    <div class="empty-sub">Reads your CV, searches for real jobs, and shows every step of the analysis.</div>
+    <div class="suggestions">
+      <button class="suggestion">Analyze my CV and summarize my profile</button>
+      <button class="suggestion">Find relevant software engineer jobs for me</button>
+      <button class="suggestion">What skills am I missing for ML roles?</button>
+      <button class="suggestion">Tailor my resume for a backend engineer role</button>
+      <button class="suggestion">Find data scientist jobs and check my fit</button>
+      <button class="suggestion">What keywords should I add to my CV?</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Input ────────────────────────────────────────────────── -->
+<div id="input-wrap">
+  <div id="input-box">
+    <textarea id="input" rows="1" placeholder="Ask me to analyze your CV, find jobs, or tailor your resume…"></textarea>
+    <button id="send-btn" title="Send (Enter)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"></line>
+        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+      </svg>
+    </button>
+  </div>
+  <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+</div>
+
+<script>
+  const messagesEl  = document.getElementById('messages');
+  const inputEl     = document.getElementById('input');
+  const sendBtn     = document.getElementById('send-btn');
+  const statusBadge = document.getElementById('status-badge');
+  const statusText  = document.getElementById('status-text');
+  const emptyEl     = document.getElementById('empty');
+  const history     = [];
+
+  // ── Config ──────────────────────────────────────────────────────────────────
+  fetch('/resume/config').then(r => r.json()).then(cfg => {
+    document.getElementById('cv-path').textContent  = cfg.cv_pdf_path;
+    document.getElementById('tex-path').textContent = cfg.overleaf_tex_path;
+    document.getElementById('cv-dot').className  = 'cfg-dot ok';
+    document.getElementById('tex-dot').className = 'cfg-dot ok';
+  }).catch(() => {});
+
+  fetch('/resume/tools').then(r => r.json()).then(d => {
+    document.getElementById('tool-count').textContent = `${d.tools?.length ?? 0} tools`;
+  }).catch(() => { document.getElementById('tool-count').textContent = 'agent'; });
+
+  // ── Status ───────────────────────────────────────────────────────────────────
+  function setStatus(state, label) {
+    statusBadge.className = state || '';
+    statusText.textContent = label ??
+      ({ connected:'Ready', thinking:'Thinking…', error:'Error', '':'Idle' }[state] ?? state);
+  }
+  function setInputLocked(v) { inputEl.disabled = v; sendBtn.disabled = v; }
+  function scrollToBottom()  { messagesEl.scrollTo({ top: messagesEl.scrollHeight, behavior:'smooth' }); }
+  function removeEmpty()     { if (emptyEl?.parentNode) emptyEl.remove(); }
+
+  // ── Icons ────────────────────────────────────────────────────────────────────
+  const TOOL_ICONS  = { read_cv:'📄', read_overleaf:'📝', search_jobs:'🔍', fetch_job_page:'🌐' };
+  const AGENT_ICONS = { cv_analyzer:'👤', job_analyzer:'💼', gap_analyzer:'📊', tailoring_advisor:'✏️' };
+
+  function argsHint(toolName, args) {
+    switch (toolName) {
+      case 'read_cv':          return 'reading CV PDF…';
+      case 'read_overleaf':    return 'reading .tex file…';
+      case 'search_jobs':      return `"${args.query || ''}"`;
+      case 'fetch_job_page':
+        try { return new URL(args.url).hostname; } catch { return (args.url || '').slice(0, 50); }
+      default:                 return (args.task || JSON.stringify(args)).slice(0, 70);
+    }
+  }
+
+  // ── Step card ────────────────────────────────────────────────────────────────
+  function createStepCard({ name, icon, hint, isAgent, argsObj }) {
+    const card = document.createElement('div');
+    card.className = 'step-card running' + (isAgent ? ' agent-card' : '');
+
+    const argsText = JSON.stringify(argsObj, null, 2);
+
+    card.innerHTML = `
+      <div class="step-header">
+        <span class="step-chevron">▶</span>
+        <span class="step-icon">${icon}</span>
+        <span class="step-name">${name}</span>
+        <span class="step-hint">${escHtml(hint)}</span>
+        <span class="step-badge running"><span class="spin"></span>running</span>
+      </div>
+      <div class="step-body">
+        <div>
+          <div class="step-section-label">Arguments</div>
+          <pre class="step-pre">${escHtml(argsText)}</pre>
+        </div>
+        <div>
+          <div class="step-section-label">Result</div>
+          <pre class="step-pre step-result">waiting…</pre>
+        </div>
+      </div>`;
+
+    card.querySelector('.step-header').addEventListener('click', () => {
+      card.classList.toggle('expanded');
+    });
+
+    return card;
+  }
+
+  function resolveStepCard(card, preview, isError) {
+    card.classList.remove('running');
+    const badge = card.querySelector('.step-badge');
+    badge.className = 'step-badge ' + (isError ? 'error-badge' : 'done');
+    badge.textContent = isError ? '✕ error' : '✓ done';
+    card.querySelector('.step-result').textContent = preview;
+  }
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;');
+  }
+
+  // ── Markdown renderer ─────────────────────────────────────────────────────────
+  function renderMarkdown(raw) {
+    const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const inline = s => s
+      .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g,'<em>$1</em>')
+      .replace(/`([^`]+)`/g,'<code>$1</code>');
+    const isSep    = l => /^\|[\s\-:|]+\|$/.test(l.trim());
+    const parseRow = l => l.trim().replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+    const flushTbl = buf => {
+      const rows = buf.filter(l => !isSep(l));
+      if (!rows.length) return '';
+      const [h, ...b] = rows;
+      const th = parseRow(esc(h)).map(c=>`<th>${inline(c)}</th>`).join('');
+      const tb = b.map(r=>'<tr>'+parseRow(esc(r)).map(c=>`<td>${inline(c)}</td>`).join('')+'</tr>').join('');
+      return `<div class="table-wrap"><table><thead><tr>${th}</tr></thead>${tb?`<tbody>${tb}</tbody>`:''}</table></div>`;
+    };
+    const lines = raw.split('\n');
+    let html='', inUL=false, inOL=false, inCode=false, codeBuf='', tbl=[];
+    const cL=()=>{ if(inUL){html+='</ul>';inUL=false;} if(inOL){html+='</ol>';inOL=false;} };
+    const cT=()=>{ if(tbl.length){html+=flushTbl(tbl);tbl=[];} };
+    for (const rl of lines) {
+      const l = esc(rl);
+      if (rl.trimStart().startsWith('```')) {
+        cT(); cL();
+        if (inCode) { html+=`<pre><code>${esc(codeBuf.trimEnd())}</code></pre>`; codeBuf=''; inCode=false; }
+        else { inCode=true; } continue;
+      }
+      if (inCode) { codeBuf+=rl+'\n'; continue; }
+      if (rl.trim().startsWith('|')) { cL(); tbl.push(rl); continue; }
+      cT();
+      const u=l.match(/^[\-\*]\s+(.*)/), o=l.match(/^\d+\.\s+(.*)/);
+      const h2=l.match(/^##\s+(.*)/), h3=l.match(/^###\s+(.*)/);
+      if (u)       { if(inOL){html+='</ol>';inOL=false;} if(!inUL){html+='<ul>';inUL=true;} html+=`<li>${inline(u[1])}</li>`; }
+      else if (o)  { if(inUL){html+='</ul>';inUL=false;} if(!inOL){html+='<ol>';inOL=true;} html+=`<li>${inline(o[1])}</li>`; }
+      else if (h3) { cL(); html+=`<h3>${inline(h3[1])}</h3>`; }
+      else if (h2) { cL(); html+=`<h2>${inline(h2[1])}</h2>`; }
+      else if (l.trim()==='') { cL(); html+='<br>'; }
+      else { cL(); html+=`<p>${inline(l)}</p>`; }
+    }
+    cL(); cT();
+    if (inCode) html+=`<pre><code>${esc(codeBuf)}</code></pre>`;
+    return html;
+  }
+
+  // ── Message builders ──────────────────────────────────────────────────────────
+  function addUserBubble(text) {
+    removeEmpty();
+    const g = document.createElement('div');
+    g.className = 'msg-group user';
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    b.textContent = text;
+    g.appendChild(b);
+    messagesEl.appendChild(g);
+    scrollToBottom();
+  }
+
+  function createAgentGroup() {
+    removeEmpty();
+    const g = document.createElement('div');
+    g.className = 'msg-group agent';
+
+    const rail = document.createElement('div');
+    rail.className = 'steps-rail';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble cursor';
+
+    g.appendChild(rail);
+    g.appendChild(bubble);
+    messagesEl.appendChild(g);
+    scrollToBottom();
+    return { rail, bubble };
+  }
+
+  // ── Send ──────────────────────────────────────────────────────────────────────
+  function send(text) {
+    text = (text ?? inputEl.value).trim();
+    if (!text) return;
+
+    inputEl.value = '';
+    inputEl.style.height = '';
+    setInputLocked(true);
+    setStatus('thinking');
+
+    history.push({ role: 'user', content: text });
+    addUserBubble(text);
+
+    const { rail, bubble } = createAgentGroup();
+    let accumulated = '';
+
+    // Track pending step cards per tool name (FIFO queue to handle repeated calls)
+    const pending = new Map();
+
+    const ws = new WebSocket(`ws://${location.host}/resume/chat`);
+
+    ws.onopen = () => ws.send(JSON.stringify({ messages: history }));
+
+    ws.onmessage = ({ data }) => {
+      const evt = JSON.parse(data);
+
+      switch (evt.type) {
+
+        case 'tool_start': {
+          const name  = evt.tool;
+          const icon  = TOOL_ICONS[name] || '🔧';
+          const hint  = argsHint(name, evt.args || {});
+          const card  = createStepCard({ name, icon, hint, isAgent: false, argsObj: evt.args || {} });
+          rail.appendChild(card);
+          if (!pending.has(name)) pending.set(name, []);
+          pending.get(name).push(card);
+          scrollToBottom();
+          break;
+        }
+
+        case 'tool_end': {
+          const queue = pending.get(evt.tool);
+          if (queue?.length) resolveStepCard(queue.shift(), evt.preview || '', false);
+          scrollToBottom();
+          break;
+        }
+
+        case 'agent_start': {
+          const name  = evt.agent;
+          const icon  = AGENT_ICONS[name] || '🤖';
+          const hint  = (evt.task || '').slice(0, 70);
+          const card  = createStepCard({ name, icon, hint, isAgent: true, argsObj: evt.args || {} });
+          rail.appendChild(card);
+          if (!pending.has(name)) pending.set(name, []);
+          pending.get(name).push(card);
+          scrollToBottom();
+          break;
+        }
+
+        case 'agent_end': {
+          const queue = pending.get(evt.agent);
+          if (queue?.length) resolveStepCard(queue.shift(), evt.preview || '', false);
+          scrollToBottom();
+          break;
+        }
+
+        case 'token':
+          accumulated += evt.content;
+          bubble.innerHTML = renderMarkdown(accumulated);
+          bubble.classList.add('cursor');
+          scrollToBottom();
+          break;
+
+        case 'done':
+          bubble.classList.remove('cursor');
+          if (!accumulated) bubble.style.display = 'none';
+          history.push({ role: 'assistant', content: accumulated });
+          setInputLocked(false);
+          setStatus('connected');
+          inputEl.focus();
+          break;
+
+        case 'error':
+          bubble.classList.remove('cursor');
+          bubble.style.color = 'var(--red)';
+          bubble.textContent = 'Error: ' + evt.message;
+          setInputLocked(false);
+          setStatus('error');
+          break;
+      }
+    };
+
+    ws.onerror = () => {
+      bubble.classList.remove('cursor');
+      bubble.style.color = 'var(--red)';
+      bubble.textContent = 'Could not connect to the server.';
+      setInputLocked(false);
+      setStatus('error');
+    };
+  }
+
+  // ── Events ────────────────────────────────────────────────────────────────────
+  sendBtn.addEventListener('click', () => send());
+
+  inputEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+
+  inputEl.addEventListener('input', () => {
+    inputEl.style.height = 'auto';
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+  });
+
+  document.querySelectorAll('.suggestion').forEach(btn =>
+    btn.addEventListener('click', () => send(btn.textContent))
+  );
+
+  inputEl.focus();
+</script>
+</body>
+</html>

@@ -14,6 +14,7 @@ from models import ChatRequest
 from resume_llm import run_resume_agent_stream
 from resume_tools import RESUME_TOOL_DEFINITIONS
 from tools import TOOL_DEFINITIONS
+from tools.cv_versions import CVVersionTracker
 
 
 def _ensure_ollama_running() -> None:
@@ -151,24 +152,40 @@ def resume_config():
     }
 
 
+@app.get("/resume/versions", tags=["resume"])
+async def list_resume_versions():
+    tracker = CVVersionTracker()
+    versions = await tracker.list_versions()
+    return {"versions": versions}
+
+
 @app.websocket("/resume/chat")
 async def resume_chat_ws(websocket: WebSocket):
     await websocket.accept()
+    session_ctx: list[dict] = []   # persists across all turns on this connection
     try:
-        data = await websocket.receive_json()
-        req = ChatRequest(**data)
-        messages = [m.model_dump() for m in req.messages]
+        while True:
+            data = await websocket.receive_json()
+            req = ChatRequest(**data)
+            messages = [m.model_dump() for m in req.messages]
 
-        if not messages:
-            await websocket.send_json({"type": "error", "message": "messages must not be empty"})
-            return
+            if not messages:
+                await websocket.send_json({"type": "error", "message": "messages must not be empty"})
+                continue
 
-        async for event in run_resume_agent_stream(messages, system_prompt=req.system_prompt):
-            await websocket.send_json(event)
+            async for event in run_resume_agent_stream(
+                messages,
+                system_prompt=req.system_prompt,
+                session_ctx=session_ctx,
+            ):
+                await websocket.send_json(event)
 
     except WebSocketDisconnect:
         pass
     except Exception as exc:
-        await websocket.send_json({"type": "error", "message": str(exc)})
+        try:
+            await websocket.send_json({"type": "error", "message": str(exc)})
+        except Exception:
+            pass
     finally:
         await websocket.close()

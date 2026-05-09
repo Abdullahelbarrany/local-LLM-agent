@@ -1,0 +1,5 @@
+# New dependencies for enhancements 1-7
+beautifulsoup4>=4.12.0   # HTML parsing for job scrapers
+lxml>=5.0.0              # Fast BS4 parser (optional, falls back to html.parser)
+aiosqlite>=0.20.0        # Async SQLite for job cache + CV version tracker
+httpx>=0.27.0            # Async-capable HTTP client (may already be installed)

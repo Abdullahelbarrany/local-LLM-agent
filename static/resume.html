@@ -278,15 +278,72 @@
     }
     @keyframes blink { 50% { opacity: 0; } }
 
+    /* ── Job list cards (Enhancement 7) ────────────────────────────────────── */
+    .job-list-wrap {
+      max-width: 84%; width: 100%;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden; box-shadow: var(--shadow-sm);
+    }
+    .job-list-header {
+      padding: 9px 14px; background: var(--purple-faint);
+      border-bottom: 1px solid var(--purple-border);
+      font-size: 12px; font-weight: 600; color: var(--purple);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .job-row {
+      display: grid;
+      grid-template-columns: 28px 52px 1fr auto;
+      align-items: center; gap: 10px;
+      padding: 9px 14px; border-bottom: 1px solid #f1f3f5;
+      cursor: pointer; transition: background .12s;
+      font-size: 13px;
+    }
+    .job-row:last-child { border-bottom: none; }
+    .job-row:hover { background: var(--purple-faint); }
+    .job-rank {
+      font-size: 12px; font-weight: 700; color: var(--text-faint);
+      text-align: center;
+    }
+    .job-score {
+      font-size: 12px; font-weight: 700; padding: 2px 6px;
+      border-radius: 99px; text-align: center; white-space: nowrap;
+    }
+    .job-score.high { background: var(--green-faint);  color: var(--green-text); }
+    .job-score.mid  { background: var(--amber-faint);  color: var(--amber-text); }
+    .job-score.low  { background: #f3f4f6;              color: var(--text-soft); }
+    .job-info { overflow: hidden; }
+    .job-title { font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .job-meta  { font-size: 11.5px; color: var(--text-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+    .job-source {
+      font-size: 11px; color: var(--text-faint); white-space: nowrap;
+      padding: 2px 6px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px;
+    }
+    .job-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
+    .job-link {
+      font-size: 11.5px; color: var(--blue); text-decoration: none;
+      padding: 2px 6px; border-radius: 4px; flex-shrink: 0; transition: background .1s;
+      border: 1px solid transparent;
+    }
+    .job-link:hover { background: var(--blue-faint); border-color: #bfdbfe; }
+
     /* ── Input ──────────────────────────────────────────────── */
     #input-wrap { width: 100%; max-width: 760px; padding: 8px 20px 24px; flex-shrink: 0; }
     #input-box {
       display: flex; align-items: flex-end; gap: 8px;
       background: var(--surface); border: 1.5px solid var(--border);
       border-radius: 16px; padding: 10px 10px 10px 16px;
-      box-shadow: var(--shadow-md); transition: border-color .15s;
+      box-shadow: var(--shadow-md); transition: border-color .15s, box-shadow .2s;
     }
     #input-box:focus-within { border-color: var(--purple); }
+    #input-box.awaiting {
+      border-color: var(--purple);
+      box-shadow: var(--shadow-md), 0 0 0 3px rgba(124,58,237,.12);
+      animation: awaitPulse 2s ease-in-out infinite;
+    }
+    @keyframes awaitPulse {
+      0%,100% { box-shadow: var(--shadow-md), 0 0 0 3px rgba(124,58,237,.12); }
+      50%      { box-shadow: var(--shadow-md), 0 0 0 6px rgba(124,58,237,.20); }
+    }
     #input {
       flex: 1; resize: none; border: none; outline: none;
       font-family: inherit; font-size: 14.5px; line-height: 1.5;
@@ -305,6 +362,10 @@
     #send-btn:disabled { opacity: .38; cursor: not-allowed; }
     #send-btn svg { width: 16px; height: 16px; }
     .input-hint { font-size: 11.5px; color: var(--text-faint); text-align: center; margin-top: 8px; }
+    #await-hint {
+      display: none; margin-top: 6px; text-align: center;
+      font-size: 12px; font-weight: 500; color: var(--purple);
+    }
   </style>
 </head>
 <body>
@@ -365,6 +426,7 @@
     </button>
   </div>
   <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line</div>
+  <div id="await-hint">Pick a number to continue &nbsp;·&nbsp; e.g. "1" or "1, 3" or "all"</div>
 </div>
 
 <script>
@@ -375,6 +437,17 @@
   const statusText  = document.getElementById('status-text');
   const emptyEl     = document.getElementById('empty');
   const history     = [];
+
+  // ── Persistent WebSocket session ─────────────────────────────────────────────
+  let sessionWs        = null;   // kept open across sends
+  let sessionConnected = false;  // true after first successful send on this socket
+
+  // Current turn's mutable UI state — updated at the start of each send()
+  let _rail       = null;
+  let _bubble     = null;
+  let _accum      = '';
+  let _pending    = new Map();
+  let _sawJobList = false;
 
   // ── Config ──────────────────────────────────────────────────────────────────
   fetch('/resume/config').then(r => r.json()).then(cfg => {
@@ -399,17 +472,83 @@
   function removeEmpty()     { if (emptyEl?.parentNode) emptyEl.remove(); }
 
   // ── Icons ────────────────────────────────────────────────────────────────────
-  const TOOL_ICONS  = { read_cv:'📄', read_overleaf:'📝', search_jobs:'🔍', fetch_job_page:'🌐' };
-  const AGENT_ICONS = { cv_analyzer:'👤', job_analyzer:'💼', gap_analyzer:'📊', tailoring_advisor:'✏️' };
+  const TOOL_ICONS = {
+    read_cv:'📄', read_overleaf:'📝', search_jobs:'🔍', fetch_job_page:'🔗',
+    search_jobs_multi:'🌐', save_cv_version:'💾',
+  };
+  const AGENT_ICONS = {
+    cv_analyzer:'👤', job_analyzer:'💼', gap_analyzer:'📊', tailoring_advisor:'✏️',
+    company_research_agent:'🏢', cover_letter_agent:'✉️',
+  };
 
   function argsHint(toolName, args) {
     switch (toolName) {
-      case 'read_cv':          return 'reading CV PDF…';
-      case 'read_overleaf':    return 'reading .tex file…';
-      case 'search_jobs':      return `"${args.query || ''}"`;
+      case 'read_cv':            return 'reading CV PDF…';
+      case 'read_overleaf':      return 'reading .tex file…';
+      case 'search_jobs':        return `"${args.query || ''}"`;
+      case 'search_jobs_multi':  return `"${args.query || ''}" across 12 sites`;
+      case 'save_cv_version':    return `${args.company || ''} — ${args.role || ''}`;
       case 'fetch_job_page':
         try { return new URL(args.url).hostname; } catch { return (args.url || '').slice(0, 50); }
-      default:                 return (args.task || JSON.stringify(args)).slice(0, 70);
+      default: return (args.task || JSON.stringify(args)).slice(0, 70);
+    }
+  }
+
+  // ── Job list renderer (Enhancement 7) ────────────────────────────────────────
+  const inputBox  = document.getElementById('input-box');
+  const awaitHint = document.getElementById('await-hint');
+
+  function scoreClass(score) {
+    const pct = Math.round((score || 0) * 100);
+    return pct >= 70 ? 'high' : pct >= 45 ? 'mid' : 'low';
+  }
+
+  function renderJobList(rail, jobs) {
+    if (!jobs || !jobs.length) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'job-list-wrap';
+    wrap.innerHTML = `<div class="job-list-header">🌐 ${jobs.length} jobs found — click a row to select</div>`;
+    jobs.forEach(job => {
+      const pct  = Math.round((job.score || 0) * 100);
+      const cls  = scoreClass(job.score);
+      const loc  = job.location ? ` · ${job.location}` : '';
+      const row  = document.createElement('div');
+      row.className = 'job-row';
+      const safeHref = /^https?:\/\//i.test(job.url || '') ? job.url : '';
+      row.innerHTML = `
+        <span class="job-rank">${job.rank || ''}</span>
+        <span class="job-score ${cls}">${pct}%</span>
+        <div class="job-info">
+          <div class="job-title">${escHtml(job.title || 'Untitled')}</div>
+          <div class="job-meta">${escHtml((job.company || '') + loc)}</div>
+        </div>
+        <div class="job-actions">
+          ${safeHref ? `<a class="job-link" href="${escHtml(safeHref)}" target="_blank" rel="noopener noreferrer">↗ Open</a>` : ''}
+          <span class="job-source">${escHtml(job.source || '')}</span>
+        </div>
+      `;
+      const link = row.querySelector('a.job-link');
+      if (link) link.addEventListener('click', e => e.stopPropagation());
+      row.addEventListener('click', () => {
+        inputEl.value = String(job.rank || '');
+        inputEl.focus();
+      });
+      wrap.appendChild(row);
+    });
+    rail.appendChild(wrap);
+    scrollToBottom();
+  }
+
+  function setAwaiting(active) {
+    if (active) {
+      inputBox.classList.add('awaiting');
+      awaitHint.style.display = 'block';
+      inputEl.placeholder = 'Type a number, e.g. "1", "1, 3", or "all"…';
+      inputEl.focus();
+    } else {
+      inputBox.classList.remove('awaiting');
+      awaitHint.style.display = 'none';
+      inputEl.placeholder = 'Ask me to analyze your CV, find jobs, or tailor your resume…';
     }
   }
 
@@ -536,11 +675,111 @@
     return { rail, bubble };
   }
 
+  // ── WebSocket event dispatcher (uses current turn's _* variables) ────────────
+  function handleWsEvent(evt) {
+    switch (evt.type) {
+
+      case 'tool_start': {
+        const name = evt.tool;
+        const icon = TOOL_ICONS[name] || '🔧';
+        const hint = argsHint(name, evt.args || {});
+        const card = createStepCard({ name, icon, hint, isAgent: false, argsObj: evt.args || {} });
+        _rail.appendChild(card);
+        if (!_pending.has(name)) _pending.set(name, []);
+        _pending.get(name).push(card);
+        scrollToBottom();
+        break;
+      }
+
+      case 'tool_end': {
+        const queue = _pending.get(evt.tool);
+        if (queue?.length) resolveStepCard(queue.shift(), evt.preview || '', false);
+        scrollToBottom();
+        break;
+      }
+
+      case 'agent_start': {
+        const name = evt.agent;
+        const icon = AGENT_ICONS[name] || '🤖';
+        const hint = (evt.task || '').slice(0, 70);
+        const card = createStepCard({ name, icon, hint, isAgent: true, argsObj: evt.args || {} });
+        _rail.appendChild(card);
+        if (!_pending.has(name)) _pending.set(name, []);
+        _pending.get(name).push(card);
+        scrollToBottom();
+        break;
+      }
+
+      case 'agent_end': {
+        const queue = _pending.get(evt.agent);
+        if (queue?.length) {
+          const isErr = (evt.preview || '').startsWith('Error:');
+          resolveStepCard(queue.shift(), evt.preview || '', isErr);
+        }
+        scrollToBottom();
+        break;
+      }
+
+      case 'job_list':
+        _sawJobList = true;
+        renderJobList(_rail, evt.jobs || []);
+        break;
+
+      case 'awaiting_selection':
+        setAwaiting(true);
+        setInputLocked(false);   // unlock immediately so the user can type their pick
+        break;
+
+      case 'token':
+        _accum += evt.content;
+        _bubble.innerHTML = renderMarkdown(_accum);
+        _bubble.classList.add('cursor');
+        scrollToBottom();
+        break;
+
+      case 'done':
+        _bubble.classList.remove('cursor');
+        if (!_accum) _bubble.style.display = 'none';
+        history.push({ role: 'assistant', content: _accum });
+        setInputLocked(false);
+        setStatus('connected');
+        if (!_sawJobList) setAwaiting(false);
+        inputEl.focus();
+        break;
+
+      case 'error':
+        _bubble.classList.remove('cursor');
+        _bubble.style.color = 'var(--red)';
+        _bubble.textContent = 'Error: ' + evt.message;
+        setInputLocked(false);
+        setStatus('error');
+        setAwaiting(false);
+        break;
+    }
+  }
+
+  function _onWsError() {
+    _bubble.classList.remove('cursor');
+    _bubble.style.color = 'var(--red)';
+    _bubble.textContent = 'Could not connect to the server.';
+    setInputLocked(false);
+    setStatus('error');
+    sessionWs = null;
+    sessionConnected = false;
+  }
+
+  function _onWsClose() {
+    // Server closed the socket (e.g. restart). Reset so next send creates a new one.
+    sessionWs = null;
+    sessionConnected = false;
+  }
+
   // ── Send ──────────────────────────────────────────────────────────────────────
   function send(text) {
     text = (text ?? inputEl.value).trim();
     if (!text) return;
 
+    setAwaiting(false);
     inputEl.value = '';
     inputEl.style.height = '';
     setInputLocked(true);
@@ -549,92 +788,33 @@
     history.push({ role: 'user', content: text });
     addUserBubble(text);
 
+    // Initialise per-turn UI state
     const { rail, bubble } = createAgentGroup();
-    let accumulated = '';
+    _rail       = rail;
+    _bubble     = bubble;
+    _accum      = '';
+    _pending    = new Map();
+    _sawJobList = false;
 
-    // Track pending step cards per tool name (FIFO queue to handle repeated calls)
-    const pending = new Map();
+    // First send on this socket: include full history so the server has context.
+    // Subsequent sends on the same socket: send only the new user message —
+    // the server keeps all prior tool results in its session_ctx.
+    const payload = sessionConnected
+      ? { messages: [{ role: 'user', content: text }] }
+      : { messages: history };
 
-    const ws = new WebSocket(`ws://${location.host}/resume/chat`);
-
-    ws.onopen = () => ws.send(JSON.stringify({ messages: history }));
-
-    ws.onmessage = ({ data }) => {
-      const evt = JSON.parse(data);
-
-      switch (evt.type) {
-
-        case 'tool_start': {
-          const name  = evt.tool;
-          const icon  = TOOL_ICONS[name] || '🔧';
-          const hint  = argsHint(name, evt.args || {});
-          const card  = createStepCard({ name, icon, hint, isAgent: false, argsObj: evt.args || {} });
-          rail.appendChild(card);
-          if (!pending.has(name)) pending.set(name, []);
-          pending.get(name).push(card);
-          scrollToBottom();
-          break;
-        }
-
-        case 'tool_end': {
-          const queue = pending.get(evt.tool);
-          if (queue?.length) resolveStepCard(queue.shift(), evt.preview || '', false);
-          scrollToBottom();
-          break;
-        }
-
-        case 'agent_start': {
-          const name  = evt.agent;
-          const icon  = AGENT_ICONS[name] || '🤖';
-          const hint  = (evt.task || '').slice(0, 70);
-          const card  = createStepCard({ name, icon, hint, isAgent: true, argsObj: evt.args || {} });
-          rail.appendChild(card);
-          if (!pending.has(name)) pending.set(name, []);
-          pending.get(name).push(card);
-          scrollToBottom();
-          break;
-        }
-
-        case 'agent_end': {
-          const queue = pending.get(evt.agent);
-          if (queue?.length) resolveStepCard(queue.shift(), evt.preview || '', false);
-          scrollToBottom();
-          break;
-        }
-
-        case 'token':
-          accumulated += evt.content;
-          bubble.innerHTML = renderMarkdown(accumulated);
-          bubble.classList.add('cursor');
-          scrollToBottom();
-          break;
-
-        case 'done':
-          bubble.classList.remove('cursor');
-          if (!accumulated) bubble.style.display = 'none';
-          history.push({ role: 'assistant', content: accumulated });
-          setInputLocked(false);
-          setStatus('connected');
-          inputEl.focus();
-          break;
-
-        case 'error':
-          bubble.classList.remove('cursor');
-          bubble.style.color = 'var(--red)';
-          bubble.textContent = 'Error: ' + evt.message;
-          setInputLocked(false);
-          setStatus('error');
-          break;
-      }
-    };
-
-    ws.onerror = () => {
-      bubble.classList.remove('cursor');
-      bubble.style.color = 'var(--red)';
-      bubble.textContent = 'Could not connect to the server.';
-      setInputLocked(false);
-      setStatus('error');
-    };
+    if (sessionWs && sessionWs.readyState === WebSocket.OPEN) {
+      sessionWs.send(JSON.stringify(payload));
+    } else {
+      sessionWs = new WebSocket(`ws://${location.host}/resume/chat`);
+      sessionWs.onmessage = ({ data }) => handleWsEvent(JSON.parse(data));
+      sessionWs.onerror   = _onWsError;
+      sessionWs.onclose   = _onWsClose;
+      sessionWs.onopen    = () => {
+        sessionConnected = true;
+        sessionWs.send(JSON.stringify(payload));
+      };
+    }
   }
 
   // ── Events ────────────────────────────────────────────────────────────────────

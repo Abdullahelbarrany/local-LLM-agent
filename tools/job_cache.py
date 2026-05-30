@@ -41,6 +41,18 @@ class JobCache:
             await db.execute(
                 "CREATE INDEX IF NOT EXISTS idx_fetched  ON jobs(fetched_at)"
             )
+            # Schema migration: add new columns if they don't exist yet
+            for col_ddl in (
+                "ALTER TABLE jobs ADD COLUMN status     TEXT DEFAULT 'new'",
+                "ALTER TABLE jobs ADD COLUMN fit_score  REAL",
+                "ALTER TABLE jobs ADD COLUMN fit_reason TEXT",
+                "ALTER TABLE jobs ADD COLUMN notes      TEXT",
+                "ALTER TABLE jobs ADD COLUMN tailored_cv TEXT",
+            ):
+                try:
+                    await db.execute(col_ddl)
+                except Exception:
+                    pass  # column already exists
             await db.commit()
 
     @staticmethod
@@ -134,3 +146,69 @@ class JobCache:
             ) as cur:
                 rows = await cur.fetchall()
         return [dict(r) for r in rows]
+
+    async def get_by_hash(self, url_hash: str) -> dict | None:
+        """Return a cached job by its url_hash directly (no re-hashing)."""
+        await self.init_db()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM jobs WHERE url_hash = ?", (url_hash,)
+            ) as cur:
+                row = await cur.fetchone()
+        return dict(row) if row else None
+
+    async def update_status(self, url: str, status: str) -> None:
+        await self.init_db()
+        h = self._url_hash(url)
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE jobs SET status = ? WHERE url_hash = ?", (status, h)
+            )
+            await db.commit()
+
+    async def update_status_by_hash(self, url_hash: str, status: str) -> None:
+        await self.init_db()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE jobs SET status = ? WHERE url_hash = ?", (status, url_hash)
+            )
+            await db.commit()
+
+    async def update_fit(self, url: str, fit_score: float, fit_reason: str) -> None:
+        await self.init_db()
+        h = self._url_hash(url)
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE jobs SET fit_score = ?, fit_reason = ? WHERE url_hash = ?",
+                (fit_score, fit_reason, h),
+            )
+            await db.commit()
+
+    async def get_by_status(self, status: str) -> list[dict]:
+        await self.init_db()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                "SELECT * FROM jobs WHERE status = ? ORDER BY fetched_at DESC",
+                (status,),
+            ) as cur:
+                rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+
+    async def update_notes(self, url: str, notes: str) -> None:
+        await self.init_db()
+        h = self._url_hash(url)
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE jobs SET notes = ? WHERE url_hash = ?", (notes, h)
+            )
+            await db.commit()
+
+    async def update_notes_by_hash(self, url_hash: str, notes: str) -> None:
+        await self.init_db()
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                "UPDATE jobs SET notes = ? WHERE url_hash = ?", (notes, url_hash)
+            )
+            await db.commit()

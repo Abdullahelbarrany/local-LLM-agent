@@ -185,6 +185,8 @@ async def run_resume_agent_stream(
                 model=MODEL,
                 messages=current_messages,
                 tools=RESUME_TOOL_DEFINITIONS,
+                think=False,
+                options={"num_predict": 1024},
             )
         except Exception as exc:
             yield {"type": "error", "message": f"Model error: {exc}"}
@@ -268,6 +270,7 @@ async def run_resume_agent_stream(
         model=MODEL,
         messages=current_messages,
         stream=True,
+        think=False,
     ):
         content = chunk.message.content
         if not content:
@@ -299,6 +302,125 @@ async def run_resume_agent_stream(
 
     # Store the assistant's response in the persistent session so the next turn
     # has full context (including which jobs were listed, URLs, analysis, etc.)
+    if session_ctx is not None and final_text:
+        current_messages.append({"role": "assistant", "content": final_text})
+
+    yield {"type": "done", "tools_called": tools_called}
+
+
+_COVER_LETTER_SYSTEM = """\
+You are an expert cover letter writer. You MUST always respond in English only.
+
+## Rules
+1. Write professional, concise cover letters tailored to the specific job context provided.
+2. Keep cover letters under 400 words unless the user asks for more.
+3. Use the candidate's CV information (call read_cv if needed) to ground accomplishments.
+4. Match the tone of the job posting — formal for corporate roles, conversational for startups.
+5. Structure: opening hook → relevant experience → why this company → call to action.
+6. Never fabricate achievements or responsibilities not evident from the CV.
+"""
+
+
+async def run_cover_letter_stream(
+    messages: list,
+    job_context: str,
+    session_ctx: list | None,
+) -> AsyncGenerator[dict, None]:
+    """Stream a cover letter response. Injects job_context into the system prompt."""
+
+    system_msg = _COVER_LETTER_SYSTEM
+    if job_context:
+        system_msg += f"\n\n## Job Context\n{job_context}"
+
+    current_messages: list[dict] = []
+    if session_ctx is None:
+        current_messages = [{"role": "system", "content": system_msg}]
+        for m in messages:
+            role = m.get("role") if isinstance(m, dict) else m.role
+            content = m.get("content") if isinstance(m, dict) else m.content
+            current_messages.append({"role": role, "content": content})
+    elif len(session_ctx) == 0:
+        session_ctx.append({"role": "system", "content": system_msg})
+        for m in messages:
+            role = m.get("role") if isinstance(m, dict) else m.role
+            content = m.get("content") if isinstance(m, dict) else m.content
+            session_ctx.append({"role": role, "content": content})
+        current_messages = session_ctx
+    else:
+        for m in messages:
+            role = m.get("role") if isinstance(m, dict) else m.role
+            content = m.get("content") if isinstance(m, dict) else m.content
+            session_ctx.append({"role": role, "content": content})
+        current_messages = session_ctx
+
+    # Tool loop (read_cv only)
+    tools_called: list[str] = []
+    for _ in range(MAX_TOOL_ROUNDS):
+        resp = await _client.chat(
+            model=MODEL,
+            messages=current_messages,
+            tools=RESUME_TOOL_DEFINITIONS,
+            stream=False,
+        )
+        msg = resp.message
+        if not msg.tool_calls:
+            break
+
+        current_messages.append({
+            "role": "assistant",
+            "content": msg.content or "",
+            "tool_calls": [
+                {"function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in msg.tool_calls
+            ],
+        })
+        for tc in msg.tool_calls:
+            name = tc.function.name
+            args = tc.function.arguments or {}
+            tools_called.append(name)
+            yield {"type": "tool_call", "tool": name}
+            try:
+                raw = await _call_tool(name, args)
+                result_str = json.dumps(raw, default=str)
+            except Exception as exc:
+                result_str = json.dumps({"error": str(exc)})
+            if len(result_str) > _HISTORY_RESULT_MAX:
+                result_str = result_str[:_HISTORY_RESULT_MAX] + " …[truncated]"
+            current_messages.append({"role": "tool", "content": result_str})
+    else:
+        yield {"type": "done", "tools_called": tools_called, "error": "max tool rounds reached"}
+        return
+
+    # Stream final answer, stripping <think> blocks
+    buf = ""
+    past_think = False
+    final_text = ""
+    async for chunk in await _client.chat(model=MODEL, messages=current_messages, stream=True):
+        content = chunk.message.content
+        if not content:
+            continue
+        if past_think:
+            final_text += content
+            yield {"type": "token", "content": content}
+            continue
+        buf += content
+        if "</think>" in buf:
+            past_think = True
+            after = buf.split("</think>", 1)[1]
+            buf = ""
+            if after:
+                final_text += after
+                yield {"type": "token", "content": after}
+        elif "<think>" not in buf and len(buf) > 20:
+            past_think = True
+            final_text += buf
+            yield {"type": "token", "content": buf}
+            buf = ""
+
+    if buf and not past_think:
+        final_text += buf
+        yield {"type": "token", "content": buf}
+
     if session_ctx is not None and final_text:
         current_messages.append({"role": "assistant", "content": final_text})
 

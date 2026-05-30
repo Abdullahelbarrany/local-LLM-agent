@@ -216,3 +216,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Local data
+job_cache.db
+AE_New.pdf
+
+# Claude Code internal
+.claude/

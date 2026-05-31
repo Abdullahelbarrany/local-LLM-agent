@@ -1,4 +1,4 @@
-import { Briefcase, FileText, Kanban, UserCircle } from "lucide-react";
+import { Briefcase, FileText, Kanban, Sparkles, UserCircle } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 const NAV = [
@@ -31,59 +31,74 @@ export function Sidebar() {
   };
 
   return (
-    <nav className="w-48 bg-gray-900 flex flex-col py-4 shrink-0">
+    <nav className="group relative w-14 hover:w-52 transition-all duration-200 bg-white border-r border-slate-200 flex flex-col py-4 shrink-0 overflow-hidden z-10 shadow-sm">
       {/* Brand */}
-      <div className="px-4 pb-4 border-b border-gray-700">
-        <p className="text-white font-bold text-sm tracking-tight">Job Workbench</p>
-        <p className="text-gray-500 text-xs mt-0.5">Powered by Ollama</p>
+      <div className="flex items-center gap-3 px-4 pb-4 border-b border-slate-100 min-w-[208px]">
+        <Sparkles size={20} className="text-green-600 shrink-0" />
+        <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+          <p className="text-slate-800 font-semibold text-sm tracking-tight leading-tight">
+            Job Workbench
+          </p>
+          <p className="text-slate-400 text-[10px] mt-0.5">Powered by Ollama</p>
+        </div>
       </div>
 
       {/* Nav items */}
-      <div className="flex-1 flex flex-col gap-1 px-2 pt-3">
+      <div className="flex-1 flex flex-col gap-0.5 px-2 pt-3">
         {NAV.map(({ to, icon: Icon, label, hint }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            title={hint}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors group ${
-                isActive
-                  ? "bg-blue-600 text-white"
-                  : "text-gray-400 hover:bg-gray-700 hover:text-white"
-              }`
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon size={18} className="shrink-0" />
-                <div className="min-w-0">
-                  <p className={`text-sm font-medium leading-tight ${isActive ? "text-white" : ""}`}>
-                    {label}
-                  </p>
-                  <p className={`text-[10px] leading-tight truncate mt-0.5 ${isActive ? "text-blue-200" : "text-gray-600 group-hover:text-gray-400"}`}>
-                    {hint}
-                  </p>
-                </div>
-              </>
-            )}
-          </NavLink>
+          <div key={to} className="relative group/item">
+            <NavLink
+              to={to}
+              end={to === "/"}
+              title={label}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150 min-w-[192px] ${
+                  isActive
+                    ? "border-l-2 border-green-600 bg-green-50 text-green-700 pl-[10px]"
+                    : "border-l-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 pl-[10px]"
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <Icon size={18} className="shrink-0" />
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap">
+                    <p className={`text-sm font-medium leading-tight ${isActive ? "text-green-700" : ""}`}>
+                      {label}
+                    </p>
+                    <p className={`text-[10px] leading-tight mt-0.5 ${isActive ? "text-green-500" : "text-slate-400"}`}>
+                      {hint}
+                    </p>
+                  </div>
+                </>
+              )}
+            </NavLink>
+            {/* Tooltip when collapsed */}
+            <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover/item:opacity-100 group-hover:opacity-0 transition-opacity duration-100 shadow-xl z-50">
+              {label}
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Profile reset at bottom */}
-      <div className="px-2 pt-2 border-t border-gray-700">
-        <button
-          onClick={resetProfile}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-500 hover:bg-gray-700 hover:text-gray-300 transition-colors w-full"
-          title="Re-run profile setup to update your CV / skills"
-        >
-          <UserCircle size={18} className="shrink-0" />
-          <div className="text-left">
-            <p className="text-xs font-medium leading-tight">Update Profile</p>
-            <p className="text-[10px] text-gray-600 leading-tight mt-0.5">CV &amp; skills setup</p>
+      {/* Profile reset */}
+      <div className="px-2 pt-2 border-t border-slate-100">
+        <div className="relative group/update">
+          <button
+            onClick={resetProfile}
+            title="Update Profile"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg border-l-2 border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50 transition-all duration-150 w-full min-w-[192px] pl-[10px]"
+          >
+            <UserCircle size={18} className="shrink-0" />
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-left whitespace-nowrap">
+              <p className="text-xs font-medium leading-tight">Update Profile</p>
+              <p className="text-[10px] text-slate-400 leading-tight mt-0.5">CV &amp; skills setup</p>
+            </div>
+          </button>
+          <div className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 px-2.5 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-white whitespace-nowrap opacity-0 group-hover/update:opacity-100 group-hover:opacity-0 transition-opacity duration-100 shadow-xl z-50">
+            Update Profile
           </div>
-        </button>
+        </div>
       </div>
     </nav>
   );

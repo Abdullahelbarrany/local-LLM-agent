@@ -12,12 +12,27 @@ import type { Job } from "../hooks/useJobSearch";
 import type { Pipeline } from "../hooks/usePipeline";
 import { FitBar } from "./FitBar";
 
-const COLUMNS: { key: keyof Pipeline; label: string; color: string }[] = [
-  { key: "saved", label: "Saved", color: "bg-gray-50 border-gray-200" },
-  { key: "applied", label: "Applied", color: "bg-blue-50 border-blue-200" },
-  { key: "interview", label: "Interview", color: "bg-yellow-50 border-yellow-200" },
-  { key: "offer", label: "Offer", color: "bg-green-50 border-green-200" },
+const COLUMNS: { key: keyof Pipeline; label: string }[] = [
+  { key: "saved",     label: "Saved" },
+  { key: "applied",   label: "Applied" },
+  { key: "interview", label: "Interview" },
+  { key: "offer",     label: "Offer" },
 ];
+
+const SOURCE_COLORS: Record<string, string> = {
+  LinkedIn:       "bg-blue-100 text-blue-700 border border-blue-200",
+  Indeed:         "bg-violet-100 text-violet-700 border border-violet-200",
+  Glassdoor:      "bg-green-100 text-green-700 border border-green-200",
+  Wuzzuf:         "bg-orange-100 text-orange-700 border border-orange-200",
+  Bayt:           "bg-red-100 text-red-700 border border-red-200",
+  NaukriGulf:     "bg-pink-100 text-pink-700 border border-pink-200",
+  Remotive:       "bg-teal-100 text-teal-700 border border-teal-200",
+  WeWorkRemotely: "bg-cyan-100 text-cyan-700 border border-cyan-200",
+  Jobicy:         "bg-purple-100 text-purple-700 border border-purple-200",
+  Otta:           "bg-lime-100 text-lime-700 border border-lime-200",
+  Himalayas:      "bg-amber-100 text-amber-700 border border-amber-200",
+  Wellfound:      "bg-fuchsia-100 text-fuchsia-700 border border-fuchsia-200",
+};
 
 interface KanbanCardProps {
   job: Job;
@@ -28,6 +43,7 @@ function KanbanCard({ job, onClick }: KanbanCardProps) {
   const hash = job.url_hash ?? "";
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: hash });
+  const sourceColor = SOURCE_COLORS[job.source] ?? "bg-slate-100 text-slate-600 border border-slate-200";
 
   return (
     <div
@@ -36,17 +52,19 @@ function KanbanCard({ job, onClick }: KanbanCardProps) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className={`bg-white rounded-lg border border-gray-200 p-3 cursor-grab active:cursor-grabbing shadow-sm hover:shadow transition-shadow ${
-        isDragging ? "opacity-50" : ""
+      className={`bg-white border border-slate-200 rounded-xl p-3 cursor-grab active:cursor-grabbing transition-all duration-150 hover:border-green-400 hover:shadow-sm ${
+        isDragging
+          ? "opacity-50 ring-2 ring-green-400/60 shadow-md"
+          : ""
       }`}
     >
-      <p className="font-medium text-sm text-gray-900 leading-snug truncate">{job.title}</p>
-      <p className="text-xs text-gray-500 truncate mt-0.5">{job.company}</p>
-      {job.fit_score !== undefined && (
-        <div className="mt-2">
-          <FitBar value={job.fit_score} />
-        </div>
-      )}
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${sourceColor}`}>
+          {job.source}
+        </span>
+      </div>
+      <p className="font-medium text-sm text-slate-800 leading-snug truncate">{job.title}</p>
+      <p className="text-xs text-slate-500 truncate mt-0.5">{job.company}</p>
     </div>
   );
 }
@@ -62,32 +80,37 @@ function SidePanel({ job, onClose, onNotesSave }: SidePanelProps) {
   const [notes, setNotes] = useState((job as unknown as Record<string, unknown>).notes as string ?? "");
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0">
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <h3 className="font-semibold text-gray-900 truncate">{job.title}</h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg leading-none ml-2">
+    <div className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 shadow-sm">
+      <div className="flex items-center justify-between p-4 border-b border-slate-100">
+        <h3 className="font-semibold text-slate-800 text-sm truncate">{job.title}</h3>
+        <button
+          onClick={onClose}
+          className="text-slate-400 hover:text-slate-700 text-lg leading-none ml-2 transition-colors"
+        >
           ×
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <p className="text-sm font-medium text-gray-700">{job.company}</p>
-        {job.location && <p className="text-sm text-gray-500">{job.location}</p>}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div>
+          <p className="text-sm font-medium text-slate-800">{job.company}</p>
+          {job.location && <p className="text-sm text-slate-500 mt-0.5">{job.location}</p>}
+        </div>
         {job.fit_score !== undefined && (
           <div>
-            <p className="text-xs text-gray-400 mb-1">Fit score</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">Fit score</p>
             <FitBar value={job.fit_score} />
           </div>
         )}
         {job.description && (
           <div>
-            <p className="text-xs text-gray-400 mb-1">Description</p>
-            <p className="text-xs text-gray-600 leading-relaxed line-clamp-6">{job.description}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">Description</p>
+            <p className="text-xs text-slate-500 leading-relaxed line-clamp-6">{job.description}</p>
           </div>
         )}
         <div>
-          <p className="text-xs text-gray-400 mb-1">Notes</p>
+          <p className="text-[10px] text-slate-400 uppercase tracking-widest mb-1.5">Notes</p>
           <textarea
-            className="w-full border border-gray-200 rounded-lg p-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-300"
+            className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm text-slate-800 placeholder:text-slate-400 resize-none focus:outline-none focus:border-green-500 transition-colors"
             rows={5}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
@@ -95,7 +118,7 @@ function SidePanel({ job, onClose, onNotesSave }: SidePanelProps) {
           />
           <button
             onClick={() => onNotesSave(hash, notes)}
-            className="mt-1 w-full text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-1.5 transition-colors"
+            className="mt-2 w-full text-xs bg-green-600 hover:bg-green-500 text-white rounded-lg py-2 font-medium transition-all hover:shadow-md"
           >
             Save notes
           </button>
@@ -147,11 +170,13 @@ export function KanbanBoard({ pipeline, onMove, onNotesSave }: KanbanBoardProps)
             return (
               <div
                 key={col.key}
-                className={`rounded-xl border flex flex-col w-64 shrink-0 ${col.color}`}
+                className="bg-slate-100 border border-slate-200 rounded-2xl flex flex-col w-64 shrink-0"
               >
-                <div className="p-3 font-semibold text-sm text-gray-700 border-b border-inherit flex items-center justify-between">
-                  {col.label}
-                  <span className="text-xs bg-white rounded-full px-2 py-0.5 border border-gray-200 text-gray-500">
+                <div className="p-3 border-b border-slate-200 flex items-center justify-between">
+                  <span className="text-xs text-slate-600 uppercase tracking-widest font-semibold">
+                    {col.label}
+                  </span>
+                  <span className="text-xs bg-white text-slate-500 border border-slate-200 rounded-full px-2 py-0.5">
                     {jobs.length}
                   </span>
                 </div>

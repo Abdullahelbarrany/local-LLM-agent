@@ -27,7 +27,7 @@ export function App() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100 font-sans">
+    <div className="flex h-screen overflow-hidden bg-slate-100">
       {showOnboarding && <OnboardingModal onComplete={handleOnboardingComplete} />}
       <Sidebar />
       <main className="flex-1 overflow-hidden flex flex-col">

@@ -6,6 +6,7 @@ Uses aiosqlite for non-blocking I/O from async contexts.
 """
 
 import hashlib
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -43,11 +44,17 @@ class JobCache:
             )
             # Schema migration: add new columns if they don't exist yet
             for col_ddl in (
-                "ALTER TABLE jobs ADD COLUMN status     TEXT DEFAULT 'new'",
-                "ALTER TABLE jobs ADD COLUMN fit_score  REAL",
-                "ALTER TABLE jobs ADD COLUMN fit_reason TEXT",
-                "ALTER TABLE jobs ADD COLUMN notes      TEXT",
-                "ALTER TABLE jobs ADD COLUMN tailored_cv TEXT",
+                "ALTER TABLE jobs ADD COLUMN status          TEXT DEFAULT 'new'",
+                "ALTER TABLE jobs ADD COLUMN fit_score       REAL",
+                "ALTER TABLE jobs ADD COLUMN fit_reason      TEXT",
+                "ALTER TABLE jobs ADD COLUMN notes           TEXT",
+                "ALTER TABLE jobs ADD COLUMN tailored_cv     TEXT",
+                "ALTER TABLE jobs ADD COLUMN matched_keywords TEXT",
+                "ALTER TABLE jobs ADD COLUMN flagged_senior  INTEGER DEFAULT 0",
+                "ALTER TABLE jobs ADD COLUMN remote_friendly INTEGER DEFAULT 0",
+                "ALTER TABLE jobs ADD COLUMN region_open     INTEGER DEFAULT 0",
+                "ALTER TABLE jobs ADD COLUMN quality_score   REAL",
+                "ALTER TABLE jobs ADD COLUMN rejection_reason TEXT",
             ):
                 try:
                     await db.execute(col_ddl)
@@ -86,17 +93,24 @@ class JobCache:
                 """
                 INSERT INTO jobs
                     (url_hash, title, company, location, url,
-                     description, source, fetched_at, raw_html, query)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     description, source, fetched_at, raw_html, query,
+                     flagged_senior, remote_friendly, region_open,
+                     quality_score, rejection_reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(url_hash) DO UPDATE SET
-                    title       = excluded.title,
-                    company     = excluded.company,
-                    location    = excluded.location,
-                    description = excluded.description,
-                    source      = excluded.source,
-                    fetched_at  = excluded.fetched_at,
-                    raw_html    = excluded.raw_html,
-                    query       = excluded.query
+                    title            = excluded.title,
+                    company          = excluded.company,
+                    location         = excluded.location,
+                    description      = excluded.description,
+                    source           = excluded.source,
+                    fetched_at       = excluded.fetched_at,
+                    raw_html         = excluded.raw_html,
+                    query            = excluded.query,
+                    flagged_senior   = excluded.flagged_senior,
+                    remote_friendly  = excluded.remote_friendly,
+                    region_open      = excluded.region_open,
+                    quality_score    = excluded.quality_score,
+                    rejection_reason = excluded.rejection_reason
                 """,
                 (
                     h,
@@ -109,6 +123,11 @@ class JobCache:
                     now,
                     job_dict.get("raw_html", ""),
                     job_dict.get("query", ""),
+                    int(bool(job_dict.get("flagged_senior", False))),
+                    int(bool(job_dict.get("remote_friendly", False))),
+                    int(bool(job_dict.get("region_open", False))),
+                    job_dict.get("quality_score"),
+                    job_dict.get("rejection_reason"),
                 ),
             )
             await db.commit()
@@ -175,15 +194,46 @@ class JobCache:
             )
             await db.commit()
 
-    async def update_fit(self, url: str, fit_score: float, fit_reason: str) -> None:
+    async def update_fit(
+        self,
+        url: str,
+        fit_score: float,
+        fit_reason: str,
+        matched_keywords=None,
+    ) -> None:
         await self.init_db()
         h = self._url_hash(url)
+        mk_json = json.dumps(matched_keywords) if matched_keywords is not None else None
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(
-                "UPDATE jobs SET fit_score = ?, fit_reason = ? WHERE url_hash = ?",
-                (fit_score, fit_reason, h),
+                "UPDATE jobs SET fit_score = ?, fit_reason = ?, matched_keywords = ? WHERE url_hash = ?",
+                (fit_score, fit_reason, mk_json, h),
             )
             await db.commit()
+
+    async def get_recent(self, limit: int = 30) -> list[dict]:
+        """Return the most recently fetched remote/EMEA accepted jobs, with matched_keywords decoded."""
+        await self.init_db()
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute(
+                """SELECT * FROM jobs
+                   WHERE rejection_reason IS NULL
+                     AND (remote_friendly = 1 OR region_open = 1)
+                   ORDER BY fetched_at DESC LIMIT ?""",
+                (limit,),
+            ) as cur:
+                rows = await cur.fetchall()
+        result = []
+        for r in rows:
+            d = dict(r)
+            if d.get("matched_keywords"):
+                try:
+                    d["matched_keywords"] = json.loads(d["matched_keywords"])
+                except Exception:
+                    d["matched_keywords"] = []
+            result.append(d)
+        return result
 
     async def get_by_status(self, status: str) -> list[dict]:
         await self.init_db()

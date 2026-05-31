@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export interface Job {
   url_hash?: string;
@@ -20,29 +20,20 @@ export interface Job {
   status?: string;
 }
 
-const CACHE_KEY = "job_results";
-
-function loadCached(): Job[] {
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    return raw ? (JSON.parse(raw) as Job[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveCached(jobs: Job[]) {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(jobs));
-  } catch {
-    // storage full — ignore
-  }
-}
-
 export function useJobSearch() {
-  const [results, setResults] = useState<Job[]>(loadCached);
+  const [results, setResults] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cacheHit, setCacheHit] = useState(false);
+
+  useEffect(() => {
+    fetch("/jobs/recent")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: Job[]) => {
+        if (data.length) setResults(data);
+      })
+      .catch(() => {});
+  }, []);
 
   const search = useCallback(
     async (query: string, location: string, sources: string[]) => {
@@ -55,10 +46,10 @@ export function useJobSearch() {
           body: JSON.stringify({ query, location, sources }),
         });
         if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-        const data: Job[] = await res.json();
-        setResults(data);
-        saveCached(data);
-        return data;
+        const data: { jobs: Job[]; cache_hit: boolean } = await res.json();
+        setResults(data.jobs);
+        setCacheHit(data.cache_hit);
+        return data.jobs;
       } catch (e) {
         setError(String(e));
         return [];
@@ -80,7 +71,6 @@ export function useJobSearch() {
       if (!res.ok) throw new Error(`Rank failed: ${res.status}`);
       const ranked: Job[] = await res.json();
       setResults(ranked);
-      saveCached(ranked);
     } catch (e) {
       setError(String(e));
     }
@@ -94,5 +84,11 @@ export function useJobSearch() {
     });
   }, []);
 
-  return { results, loading, error, search, rank, saveJob };
+  const updateJobStatus = useCallback((urlHash: string, newStatus: string) => {
+    setResults((prev) =>
+      prev.map((j) => (j.url_hash === urlHash ? { ...j, status: newStatus } : j))
+    );
+  }, []);
+
+  return { results, loading, error, cacheHit, search, rank, saveJob, updateJobStatus };
 }

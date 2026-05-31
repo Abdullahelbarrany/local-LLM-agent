@@ -33,6 +33,7 @@ _USER_AGENTS = [
 _TIMEOUT = 15.0
 _RATE_DELAY = (1.0, 2.0)
 _MAX_WORKERS = 5  # parallel scraper threads
+_PER_SOURCE_LIMIT = 15  # target results per source
 
 
 def _random_ua() -> str:
@@ -87,7 +88,7 @@ class JobScraper:
         def _fn() -> list[dict]:
             resp = _get(
                 "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search",
-                {"keywords": query, "location": location, "start": 0, "count": 10},
+                {"keywords": query, "location": location or "Remote", "start": 0, "count": _PER_SOURCE_LIMIT, "f_WT": 2},
             )
             soup = _bs(resp.text)
             jobs: list[dict] = []
@@ -254,11 +255,11 @@ class JobScraper:
         def _fn() -> list[dict]:
             resp = _get(
                 "https://remotive.com/api/remote-jobs",
-                {"search": query, "limit": 10},
+                {"search": query, "limit": _PER_SOURCE_LIMIT},
             )
             data = resp.json()
             jobs: list[dict] = []
-            for job in data.get("jobs", [])[:10]:
+            for job in data.get("jobs", [])[:_PER_SOURCE_LIMIT]:
                 jobs.append({
                     "title":       job.get("title", ""),
                     "company":     job.get("company_name", ""),
@@ -307,11 +308,11 @@ class JobScraper:
         def _fn() -> list[dict]:
             resp = _get(
                 "https://jobicy.com/api/v2/remote-jobs",
-                {"search": query, "count": 10},
+                {"search": query, "count": _PER_SOURCE_LIMIT},
             )
             data = resp.json()
             jobs: list[dict] = []
-            for job in data.get("jobs", [])[:10]:
+            for job in data.get("jobs", [])[:_PER_SOURCE_LIMIT]:
                 jobs.append({
                     "title":       job.get("jobTitle", ""),
                     "company":     job.get("companyName", ""),
@@ -325,34 +326,61 @@ class JobScraper:
         return _safe("Jobicy", _fn)
 
     # ── DDG-backed fallbacks for JS-heavy sites ───────────────────────────────
-    def _ddg_fallback(self, site: str, query: str, label: str) -> list[dict]:
+    _LISTING_PAGE_RE = re.compile(
+        r"(jobs?\s+in\s+\d{4}|jobs?\s+listing|remote\s+jobs?\s*\||\bjobs?\s*\|)",
+        re.IGNORECASE,
+    )
+    _AT_COMPANY_RE = re.compile(r"\bat\s+([^|·•\n]+?)(?:\s*[|·•]|\s*$)", re.IGNORECASE)
+
+    def _ddg_fallback(self, site: str, jobs_subpath: str, query: str, label: str,
+                      min_path_depth: int = 2) -> list[dict]:
         def _fn() -> list[dict]:
+            from urllib.parse import urlparse
             from ddgs import DDGS
+            # Restrict search to the /jobs/ subpath so we get individual listings
             with DDGS() as ddgs:
-                results = list(ddgs.text(f"site:{site} {query} job", max_results=5))
-            return [
-                {
-                    "title":       r.get("title", ""),
-                    "company":     "",
-                    "location":    "See listing",
-                    "url":         r.get("href", ""),
+                results = list(ddgs.text(
+                    f'site:{site}/{jobs_subpath} "{query}" remote',
+                    max_results=15,
+                ))
+            jobs: list[dict] = []
+            for r in results:
+                url   = r.get("href", "")
+                title = r.get("title", "").strip()
+                if not url.startswith("http"):
+                    continue
+                # Skip category / search-results pages
+                path_parts = [p for p in urlparse(url).path.strip("/").split("/") if p]
+                if len(path_parts) < min_path_depth:
+                    continue
+                if self._LISTING_PAGE_RE.search(title):
+                    continue
+                # Try to pull company from "Title at Company · …" format
+                company = ""
+                m = self._AT_COMPANY_RE.search(title)
+                if m:
+                    company = m.group(1).strip()
+                    title   = title[: m.start()].strip(" -–|")
+                jobs.append({
+                    "title":       title,
+                    "company":     company,
+                    "location":    "Remote",
+                    "url":         url,
                     "description": r.get("body", ""),
                     "date_posted": "",
                     "source":      label,
-                }
-                for r in results
-                if r.get("href", "").startswith("http")
-            ]
+                })
+            return jobs[:8]
         return _safe(label, _fn)
 
     def scrape_otta(self, query: str, location: str = "") -> list[dict]:
-        return self._ddg_fallback("app.otta.com", query, "Otta")
+        return self._ddg_fallback("app.otta.com", "jobs", query, "Otta", min_path_depth=2)
 
     def scrape_himalayas(self, query: str, location: str = "") -> list[dict]:
-        return self._ddg_fallback("himalayas.app", query, "Himalayas")
+        return self._ddg_fallback("himalayas.app", "jobs", query, "Himalayas", min_path_depth=3)
 
     def scrape_wellfound(self, query: str, location: str = "") -> list[dict]:
-        return self._ddg_fallback("wellfound.com", query, "Wellfound")
+        return self._ddg_fallback("wellfound.com", "jobs", query, "Wellfound", min_path_depth=2)
 
     # ── Aggregate ─────────────────────────────────────────────────────────────
     def scrape_all(self, query: str, location: str = "") -> list[dict]:

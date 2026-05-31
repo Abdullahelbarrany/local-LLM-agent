@@ -92,9 +92,22 @@ def health():
 @app.post("/jobs/search", tags=["jobs"])
 async def jobs_search(req: JobSearchRequest):
     """Scrape jobs, apply quality gate, cache results, return augmented list."""
+    # Bug 4: check cache before scraping
+    cached = await _cache.get_all_for_query(req.query, max_age_hours=6)
+    if len(cached) >= 20:
+        accepted = [j for j in cached if j.get("rejection_reason") is None
+                    and (j.get("remote_friendly") or j.get("region_open"))]
+        if req.sources:
+            sources_lower = {s.lower() for s in req.sources}
+            accepted = [j for j in accepted if (j.get("source") or "").lower() in sources_lower]
+        return {"jobs": accepted[:30], "cache_hit": True}
+
+    # Force remote/EMEA location if caller left it blank
+    location = req.location or "Remote"
+
     loop = asyncio.get_event_loop()
     raw: list[dict] = await loop.run_in_executor(
-        None, _scraper.scrape_all, req.query, req.location
+        None, _scraper.scrape_all, req.query, location
     )
 
     if req.sources:
@@ -103,7 +116,12 @@ async def jobs_search(req: JobSearchRequest):
 
     gated = apply_quality_gate(raw)
 
-    # Cache every job (upsert) and stamp url_hash so the frontend can PATCH by it
+    # Bug 3: split accepted/rejected — cache both, return only accepted
+    # Only surface remote-friendly or region-open jobs
+    accepted = [j for j in gated if j.get("rejection_reason") is None
+                and (j.get("remote_friendly") or j.get("region_open"))]
+    rejected = [j for j in gated if j.get("rejection_reason") is not None]
+
     for job in gated:
         url = job.get("url") or ""
         job["url_hash"] = hashlib.sha256(url.encode()).hexdigest()
@@ -112,13 +130,25 @@ async def jobs_search(req: JobSearchRequest):
         except Exception:
             pass
 
-    return gated
+    return {"jobs": accepted[:30], "cache_hit": False}
 
 
 @app.post("/jobs/rank", tags=["jobs"])
 async def jobs_rank(req: RankRequest):
     """Rank jobs by keyword overlap + optional LLM scoring."""
     ranked = await rank_jobs(req.jobs, req.cv_keywords)
+    # Bug 1: persist fit scores to DB
+    for job in ranked:
+        if job.get("fit_score") is not None:
+            try:
+                await _cache.update_fit(
+                    job["url"],
+                    job["fit_score"],
+                    job.get("fit_reason", ""),
+                    job.get("matched_keywords"),
+                )
+            except Exception:
+                pass
     return ranked
 
 
@@ -132,6 +162,12 @@ async def patch_job_status(url_hash: str, req: PatchStatusRequest):
 async def patch_job_notes(url_hash: str, req: PatchNotesRequest):
     await _cache.update_notes_by_hash(url_hash, req.notes)
     return {"ok": True}
+
+
+@app.get("/jobs/recent", tags=["jobs"])
+async def jobs_recent():
+    """Return the 50 most recently fetched accepted jobs from SQLite."""
+    return await _cache.get_recent()
 
 
 @app.get("/jobs/pipeline", tags=["jobs"])

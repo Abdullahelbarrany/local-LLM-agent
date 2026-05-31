@@ -12,14 +12,14 @@ export function PipelineView() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
-        <h2 className="font-semibold text-gray-800">Application Pipeline</h2>
+      <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between shadow-sm">
+        <h2 className="font-semibold text-slate-800 text-sm tracking-tight">Application Pipeline</h2>
         <button
           onClick={load}
           disabled={loading}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 disabled:opacity-40 transition-colors"
+          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 disabled:opacity-40 transition-colors"
         >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
           Refresh
         </button>
       </div>
